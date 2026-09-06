@@ -20,6 +20,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo '--- chunk checksums ---'
+          sha256sum \
+            _sync/source.part.000 \
+            _sync/source.part.001 \
+            _sync/source.part.002 \
+            _sync/source.part.003 \
+            _sync/rest.part.000 \
+            _sync/rest.part.001 \
+            _sync/rest.part.002 \
+            _sync/rest.part.004 \
+            _sync/rest004.0 \
+            _sync/rest004.1 \
+            _sync/rest.part.005 \
+            _sync/rest.part.006
+
           cat \
             _sync/source.part.000 \
             _sync/source.part.001 \
