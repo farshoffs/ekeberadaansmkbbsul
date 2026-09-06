@@ -2,13 +2,23 @@
 
 Baseline awal: **Global Login Fix**.
 
-PENTING:
-1. Replace `Index.html` DAN `Scripts.html` bersama-sama.
-2. `Scripts.html` versi ini TIDAK mempunyai tag `<script>` / `</script>`.
-3. `Index.html` akan membungkus `include('Scripts')` dalam tag `<script>`.
-4. Jangan tambah tag `<script>` ke `Scripts.html`.
-5. `Code.gs` dan `Styles.html` perlu kekal sepadan dengan versi yang sama.
-6. Deploy sebagai **NEW VERSION** dan buka URL `/exec`.
+## Struktur include semasa
+
+1. `Scripts.html` mengandungi JavaScript mentah dan **TIDAK** mempunyai tag `<script>` / `</script>`.
+2. `Index.html` membungkus `<?!= include('Scripts'); ?>` dalam tag `<script>`.
+3. Oleh sebab partial `Scripts.html` bukan HTML standalone, `include()` dalam `Code.gs` **mesti** menggunakan raw template content:
+
+```javascript
+function include(filename) {
+  return HtmlService.createTemplateFromFile(filename).getRawContent();
+}
+```
+
+Jangan gunakan `HtmlService.createHtmlOutputFromFile(filename).getContent()` untuk struktur ini kerana Apps Script akan cuba parse `Scripts.html` sebagai HTML dan menghasilkan `Exception: Malformed HTML content: const state = ...`.
+
+## Deploy
+
+Selepas perubahan, deploy sebagai **NEW VERSION** dan buka URL `/exec`.
 
 Ujian console selepas deploy:
 
