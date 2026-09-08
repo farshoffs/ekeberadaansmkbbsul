@@ -1,0 +1,7 @@
+import { clientIp, fail, ok } from '@/lib/http';
+import { getUser, updateCells } from '@/lib/sheets';
+import { issueSession, registerDevice, setAuthCookies, verifyPin } from '@/lib/security';
+import { audit, loginLog } from '@/lib/audit';
+import { parseSheetDate } from '@/lib/time';
+export const runtime='nodejs';
+export async function POST(req:Request){try{const{email,pin}=await req.json();const user=await getUser(email,true),ip=clientIp(req),ua=req.headers.get('user-agent')||'';if(!user||!/^\d{6}$/.test(String(pin||''))||!verifyPin(String(pin),user)){if(user){const failed=user.failedLoginCount+1,lock=failed>=5?new Date(Date.now()+15*60000).toISOString():'';await updateCells('PENGGUNA',user.row,14,[failed>=5?0:failed,lock]);await loginLog(user.email,user.name,user.category,ip,ua,'GAGAL_PIN','PIN tidak tepat')}throw new Error('Emel atau PIN tidak tepat.')}if(user.lockedUntil&&parseSheetDate(user.lockedUntil)>Date.now())throw new Error('Akaun dikunci sementara. Cuba semula kemudian.');await updateCells('PENGGUNA',user.row,14,[0,'']);const device=await registerDevice(user,ua,ip),token=await issueSession(user,device.id);await setAuthCookies(token,device.credential);await loginLog(user.email,user.name,user.category,ip,ua,'BERJAYA','Next.js PWA; trusted device 30 hari');await audit(user.email,'LOGIN_APLIKASI',user.email,`Next.js PWA; DeviceID=${device.id}; IP=${ip||'-'}`);return ok({ok:true})}catch(e){return fail(e)}}

@@ -1,0 +1,26 @@
+export const TIMEZONE = 'Asia/Kuala_Lumpur';
+
+export const SHEETS = {
+  USERS: 'PENGGUNA',
+  SETTINGS: 'TETAPAN',
+  ATTENDANCE: 'KEHADIRAN',
+  AUDIT: 'AUDIT',
+  REPORT: 'LAPORAN_HARIAN',
+  ABSENCE: 'TIDAK_HADIR',
+  TIME_REVIEW: 'SEMAKAN_WAKTU',
+  LOGIN_LOG: 'LOG_LOGIN',
+  TRUSTED_DEVICES: 'SESI_PERANTI'
+} as const;
+
+export const USER_HEADERS = ['Aktif','Nama','Emel','Kategori','Pentadbir','WaktuLewat','MaksMasuk','WaktuBalik','Catatan','PasswordSalt','PasswordHash','WajibTukarPassword','VersiSesi','GagalLogin','DikunciSehingga','PasswordDikemaskiniPada','FotoProfilFileId','FotoProfilDikemaskiniPada','AuthType','Jawatan','Sesi1Masuk','Sesi1Keluar','Sesi2Masuk','Sesi2Keluar'];
+export const ATT_HEADERS = ['Tarikh','Emel','Nama','Kategori','Masuk','MasukLat','MasukLng','MasukJarakM','MasukAkurasiM','Balik','BalikLat','BalikLng','BalikJarakM','BalikAkurasiM','Status','Sumber','DisuntingOleh','SebabEdit','DikemaskiniPada','MasukIP','BalikIP','IPSemakan','Masuk2','Masuk2Lat','Masuk2Lng','Masuk2JarakM','Masuk2AkurasiM','Balik2','Balik2Lat','Balik2Lng','Balik2JarakM','Balik2AkurasiM','Masuk2IP','Balik2IP','StatusWaktu'];
+export const ABSENCE_HEADERS = ['ID','DihantarPada','Emel','Nama','Kategori','Jenis','TarikhMula','TarikhAkhir','Catatan','Status','DisemakOleh','DisemakPada','UlasanPengetua','DikemaskiniPada','Mod','MasaMula','MasaAkhir','Jawatan'];
+export const SESSION_DAYS = 30;
+export const MAX_TRUSTED_DEVICES = 2;
+export const AUTH_TYPE = 'PIN_V1';
+
+export const DEFAULT_SETTINGS: Record<string,string> = {
+  SCHOOL_NAME:'SMK Bandar Baru Sungai Lalang', SCHOOL_LAT:'', SCHOOL_LNG:'', RADIUS_M:'200', MAX_GPS_ACCURACY_M:'120',
+  DEFAULT_LATE_AFTER:'07:30', DEFAULT_PUNCH_OUT_FROM:'14:00', DEFAULT_S1_IN:'07:30', DEFAULT_S1_OUT:'14:00', DEFAULT_S2_IN:'', DEFAULT_S2_OUT:'',
+  ABSENT_AFTER:'10:00', WORKING_DAYS:'SUN,MON,TUE,WED,THU', IP_TRACKING_ENABLED:'TRUE', IP_PUNCH_POLICY:'WARN', SYSTEM_MODE:'REAL', SYSTEM_START_DATE:'2026-09-01'
+};
