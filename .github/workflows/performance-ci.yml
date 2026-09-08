@@ -8,11 +8,13 @@ on:
       - 'Logo.html'
       - 'Scripts.html'
       - 'Styles.html'
+      - 'Bridge.html'
       - 'Bridges.gs'
       - 'Code.gs'
-      - '*.gs'
+      - 'appsscript.json'
       - 'web/**'
       - 'scripts/**'
+      - 'apps-script/**'
       - '.github/workflows/performance-ci.yml'
   workflow_dispatch:
 
@@ -27,13 +29,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Build modular static site
         run: python3 scripts/build-pages.py
+
+      - name: Materialize modular Apps Script backend
+        run: python3 scripts/materialize-backend.py
+
       - name: Validate generated JavaScript
         shell: bash
         run: |
           set -euo pipefail
           for f in _site/assets/*.js; do node --check "$f"; done
+          cat apps-script/*.gs > /tmp/apps-script-backend.js
+          node --check /tmp/apps-script-backend.js
+
       - name: Performance budget
         shell: bash
         run: |
@@ -49,10 +59,17 @@ jobs:
           test "$html" -lt 100000
           test "$js" -lt 180000
           test "$css" -lt 100000
-      - name: Verify Apps Script bridge contract
+
+      - name: Verify backend performance contract
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'function doPost(e)' Bridges.gs
-          grep -q 'renderPagesBridge_' Bridges.gs
-          grep -q 'Asia/Kuala_Lumpur' appsscript.json
+          grep -R -q 'function doPost(e)' apps-script
+          grep -R -q 'function getAttendanceRowIndex_' apps-script
+          grep -R -q 'function getSuccessfulLoginEmails_' apps-script
+          grep -R -q 'EK_RUNTIME_ABSENCE_ROWS_' apps-script
+          grep -R -q 'Asia/Kuala_Lumpur' apps-script/appsscript.json
+          ! grep -R -q "createTemplateFromFile('Index')" apps-script/*.gs
+          count=$(find apps-script -maxdepth 1 -name '*.gs' | wc -l)
+          echo "Apps Script modules=$count"
+          test "$count" -ge 10
