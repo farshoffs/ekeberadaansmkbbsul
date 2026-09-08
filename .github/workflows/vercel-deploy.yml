@@ -39,6 +39,15 @@ jobs:
           set -euo pipefail
           test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
 
+          TOKEN_LEN=${#VERCEL_TOKEN}
+          TOKEN_PREFIX=${VERCEL_TOKEN:0:4}
+          if [[ "$VERCEL_TOKEN" =~ [[:space:]] ]]; then
+            TOKEN_WS=yes
+          else
+            TOKEN_WS=no
+          fi
+          echo "Vercel token diagnostic: prefix=$TOKEN_PREFIX length=$TOKEN_LEN whitespace=$TOKEN_WS"
+
           USER_STATUS=$(curl -sS -o /tmp/vercel-user.json -w '%{http_code}' \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             https://api.vercel.com/v2/user)
