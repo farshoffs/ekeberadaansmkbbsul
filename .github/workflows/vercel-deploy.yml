@@ -38,11 +38,6 @@ jobs:
           set -euo pipefail
           test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
 
-          TOKEN_LEN=${#VERCEL_TOKEN}
-          TOKEN_PREFIX=${VERCEL_TOKEN:0:4}
-          if [[ "$VERCEL_TOKEN" =~ [[:space:]] ]]; then TOKEN_WS=yes; else TOKEN_WS=no; fi
-          echo "Vercel token diagnostic: prefix=$TOKEN_PREFIX length=$TOKEN_LEN whitespace=$TOKEN_WS"
-
           PROJECTS_STATUS=$(curl -sS -o /tmp/vercel-projects.json -w '%{http_code}' \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
             https://api.vercel.com/v9/projects)
@@ -54,16 +49,8 @@ jobs:
 
           PROJECT_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .id' /tmp/vercel-projects.json | head -n1)
           ORG_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .accountId' /tmp/vercel-projects.json | head -n1)
-
-          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
-            echo "Target project '$VERCEL_PROJECT' not returned by token scope. Available projects:"
-            jq -r '.projects[]? | "- " + .name' /tmp/vercel-projects.json
-            exit 1
-          fi
-          if [ -z "$ORG_ID" ] || [ "$ORG_ID" = "null" ]; then
-            echo "Vercel project response did not include accountId."
-            exit 1
-          fi
+          test -n "$PROJECT_ID" && test "$PROJECT_ID" != "null" || { echo "Project not available to token"; exit 1; }
+          test -n "$ORG_ID" && test "$ORG_ID" != "null" || { echo "Project accountId unavailable"; exit 1; }
 
           echo "Resolved Vercel project: $VERCEL_PROJECT"
           echo "VERCEL_ORG_ID=$ORG_ID" >> "$GITHUB_ENV"
@@ -72,7 +59,7 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel
 
-      - name: Link resolved Vercel project
+      - name: Link resolved Vercel project locally
         shell: bash
         run: |
           rm -rf modern/.vercel
@@ -82,32 +69,15 @@ jobs:
             --arg projectId "$VERCEL_PROJECT_ID" \
             '{orgId:$orgId, projectId:$projectId}' > modern/.vercel/project.json
 
-      - name: Pull Vercel project settings
-        shell: bash
-        run: |
-          if [ "$DEPLOY_TARGET" = "production" ]; then
-            vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd modern
-          else
-            vercel pull --yes --environment=preview --token="$VERCEL_TOKEN" --cwd modern
-          fi
-
-      - name: Build
-        shell: bash
-        run: |
-          if [ "$DEPLOY_TARGET" = "production" ]; then
-            vercel build --prod --token="$VERCEL_TOKEN" --cwd modern
-          else
-            vercel build --token="$VERCEL_TOKEN" --cwd modern
-          fi
-
-      - name: Deploy
+      - name: Deploy source
         id: deploy
         shell: bash
         run: |
+          set -euo pipefail
           if [ "$DEPLOY_TARGET" = "production" ]; then
-            URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --cwd modern)
+            URL=$(vercel deploy --yes --prod --token="$VERCEL_TOKEN" --cwd modern)
           else
-            URL=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" --cwd modern)
+            URL=$(vercel deploy --yes --token="$VERCEL_TOKEN" --cwd modern)
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployment URL: $URL"
