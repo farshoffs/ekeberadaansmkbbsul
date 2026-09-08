@@ -67,23 +67,24 @@ jobs:
           grep -q 'eKeberadaan Backend Bridge' /tmp/bridge-get.html
           echo "BRIDGE_GET_BYTES=$(wc -c < /tmp/bridge-get.html)"
 
-      - name: Verify Apps Script bridge RPC ping
+      - name: Verify real browser RPC shape
         shell: bash
         env:
           BACKEND: ${{ steps.backend.outputs.url }}
         run: |
           set -euo pipefail
-          payload='{"id":"ci-ping","channel":"ci","method":"__ping__","args":[],"origin":"https://farshoffs.github.io"}'
+          payload='{"id":"ci-login-data","channel":"ci","method":"getLoginPageData","args":[],"origin":"https://farshoffs.github.io"}'
           curl -LfsS --max-time 30 \
-            --data-urlencode 'bridge=1' \
             --data-urlencode "payload=${payload}" \
-            "$BACKEND" -o /tmp/bridge-post.html
+            "${BACKEND}?bridge=1" -o /tmp/bridge-post.html
           echo "BRIDGE_POST_BYTES=$(wc -c < /tmp/bridge-post.html)"
-          if grep -q 'ci-ping' /tmp/bridge-post.html && grep -q 'ready' /tmp/bridge-post.html && grep -q 'Asia/Kuala_Lumpur' /tmp/bridge-post.html; then
-            echo 'BRIDGE_RPC_PING_OK'
+          if grep -q 'ci-login-data' /tmp/bridge-post.html && grep -q 'schoolName' /tmp/bridge-post.html && grep -q 'pinLength' /tmp/bridge-post.html; then
+            echo 'BRIDGE_REAL_RPC_OK'
           else
-            echo 'Bridge POST response did not contain expected ping payload:'
-            head -c 4000 /tmp/bridge-post.html || true
+            echo 'Expected real RPC payload not found. Relevant markers:'
+            grep -Eo 'EK_BRIDGE_RESULT|ci-login-data|schoolName|pinLength|Fungsi backend[^<]*|Origin bridge[^<]*|Payload bridge[^<]*|Permintaan bridge[^<]*' /tmp/bridge-post.html || true
+            echo 'TAIL:'
+            tail -c 5000 /tmp/bridge-post.html || true
             echo
             exit 1
           fi
