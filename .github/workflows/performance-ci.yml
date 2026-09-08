@@ -55,7 +55,24 @@ jobs:
             'http://127.0.0.1:4173/' > /tmp/runtime-dom.html
           grep -q 'data-ek-runtime="ready"' /tmp/runtime-dom.html
           grep -q 'id="loginPage"' /tmp/runtime-dom.html
-          echo "BROWSER_RUNTIME_OK DOM_BYTES=$(wc -c < /tmp/runtime-dom.html)"
+
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=390,844 --virtual-time-budget=4000 --dump-dom \
+            'http://127.0.0.1:4173/' > /tmp/runtime-mobile-dom.html
+          grep -q 'data-ek-runtime="ready"' /tmp/runtime-mobile-dom.html
+          grep -q 'class="content container-fluid"' /tmp/runtime-mobile-dom.html
+          echo "BROWSER_RUNTIME_OK DESKTOP_DOM=$(wc -c < /tmp/runtime-dom.html) MOBILE_DOM=$(wc -c < /tmp/runtime-mobile-dom.html)"
+
+      - name: Verify responsive frontend contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"' _site/index.html
+          grep -q 'bootstrap@5.3.3/dist/css/bootstrap-grid.min.css' _site/index.html
+          grep -q 'class="content container-fluid"' _site/index.html
+          ls _site/assets/mobile.*.css >/dev/null
+          grep -q '@media (max-width:767.98px)' web/mobile-bootstrap.css
+          grep -q 'overflow-x:auto' web/mobile-bootstrap.css
 
       - name: Performance budget
         shell: bash
