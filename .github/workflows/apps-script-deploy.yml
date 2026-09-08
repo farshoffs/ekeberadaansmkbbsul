@@ -1,4 +1,4 @@
-name: Deploy Apps Script with clasp
+name: Deploy modular Apps Script
 
 on:
   workflow_dispatch:
@@ -14,6 +14,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Generate backend modules
+        run: python3 scripts/materialize-backend.py
+
+      - name: Validate backend syntax
+        run: |
+          cat apps-script/*.gs > /tmp/apps-script.js
+          node --check /tmp/apps-script.js
+
       - name: Check deployment secrets
         shell: bash
         env:
@@ -23,8 +32,10 @@ jobs:
           set -euo pipefail
           test -n "$APPS_SCRIPT_ID" || { echo 'Missing APPS_SCRIPT_ID'; exit 1; }
           test -n "$CLASPRC_JSON" || { echo 'Missing CLASPRC_JSON'; exit 1; }
+
       - name: Install clasp
         run: npm install --global @google/clasp
+
       - name: Configure clasp
         shell: bash
         env:
@@ -33,9 +44,10 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
-          printf '{"scriptId":"%s","rootDir":"."}\n' "$APPS_SCRIPT_ID" > .clasp.json
-      - name: Push Apps Script source
+          printf '{"scriptId":"%s","rootDir":"apps-script"}\n' "$APPS_SCRIPT_ID" > .clasp.json
+
+      - name: Push modular Apps Script source
         run: clasp push --force
 
-      - name: Note
-        run: echo 'Source pushed. Update the existing Apps Script Web App deployment in Apps Script if the deployment is not configured to pick up the latest version automatically.'
+      - name: Deployment note
+        run: echo 'Modular source pushed. If the existing Web App uses a versioned deployment, publish a New version in Apps Script Manage deployments.'
