@@ -4,73 +4,21 @@
 (() => {
   'use strict';
   const ALLOWED_ORIGIN = <?!= JSON.stringify(allowedOrigin) ?>;
-  const ALLOWED_METHODS = new Set([
-    'adminBulkResetPasswords',
-    'adminGetPunchCardMonth',
-    'adminListTrustedDevices',
-    'adminRepairAttendanceDuplicates',
-    'adminResetPassword',
-    'adminRevokeAllTrustedDevices',
-    'adminRevokeTrustedDevice',
-    'adminSaveAttendance',
-    'adminSaveSettings',
-    'adminSaveUser',
-    'adminSyncProfilePhotos',
-    'adminUnlockUser',
-    'cancelMyAbsenceRequest',
-    'checkDelimaAccount',
-    'generateAbsencePresencePdf',
-    'generateAttendancePresenceReportPdf',
-    'generateAttendancePresenceReportSheet',
-    'generatePublicAbsencePresencePdf',
-    'generateReportSheet',
-    'generateTimeReviewPdf',
-    'getAbsenceData',
-    'getAbsenceManagementData',
-    'getAdminData',
-    'getBootstrapData',
-    'getLoginPageData',
-    'getMyPunchCardMonth',
-    'getProfilePhoto',
-    'getPublicAbsencePresenceData',
-    'getTimeReviewData',
-    'loginWithPin',
-    'logoutApp',
-    'punch',
-    'resumeSession',
-    'resumeTrustedDevice',
-    'reviewAbsenceRequest',
-    'reviewTimeException',
-    'setFirstPin',
-    'submitAbsenceRequest'
-  ]);
-  function allowed(event){ return event && event.origin === ALLOWED_ORIGIN; }
-  function reply(event,payload){ try{ event.source.postMessage(payload,event.origin); }catch(_e){} }
-  window.addEventListener('message', event => {
-    const msg=event.data||{};
-    if(!allowed(event)) return;
-    if(msg.type==='EK_BRIDGE_HELLO'){
-      reply(event,{type:'EK_BRIDGE_READY'}); return;
-    }
-    if(msg.type!=='EK_BRIDGE_CALL') return;
-    const id=String(msg.id||'');
-    const method=String(msg.method||'');
-    const args=Array.isArray(msg.args)?msg.args:[];
-    if(!id || !ALLOWED_METHODS.has(method)){
-      reply(event,{type:'EK_BRIDGE_RESULT',id,ok:false,error:'Fungsi backend tidak dibenarkan.'}); return;
-    }
-    try{
-      const runner=google.script.run
-        .withSuccessHandler(value=>reply(event,{type:'EK_BRIDGE_RESULT',id,ok:true,value:value===undefined?null:value}))
-        .withFailureHandler(err=>reply(event,{type:'EK_BRIDGE_RESULT',id,ok:false,error:(err&&err.message)?err.message:String(err||'Ralat backend')}));
-      const fn=runner[method];
-      if(typeof fn!=='function') throw new Error('Fungsi backend tidak tersedia: '+method);
-      fn.apply(runner,args);
-    }catch(err){
-      reply(event,{type:'EK_BRIDGE_RESULT',id,ok:false,error:(err&&err.message)?err.message:String(err)});
-    }
-  });
-  try{ parent.postMessage({type:'EK_BRIDGE_READY'},ALLOWED_ORIGIN); }catch(_e){}
+  const RESPONSE = <?!= responseJson ?>;
+
+  function deliver(payload) {
+    try {
+      window.top.postMessage(payload, ALLOWED_ORIGIN);
+    } catch (_e) {}
+  }
+
+  // GET /?bridge=1 is a lightweight health page. POST responses carry the
+  // actual RPC result and are delivered directly to the top-level GitHub Page.
+  if (RESPONSE) {
+    deliver(RESPONSE);
+  } else {
+    deliver({ type: 'EK_BRIDGE_READY' });
+  }
 })();
 </script>
 </body></html>
