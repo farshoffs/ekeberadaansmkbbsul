@@ -1,4 +1,4 @@
-name: Deploy eKeberadaan to GitHub Pages
+name: Publish eKeberadaan static web
 
 on:
   push:
@@ -14,22 +14,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: github-pages
+  group: gh-pages-publish
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build static site from Apps Script UI
         shell: bash
@@ -68,23 +65,24 @@ jobs:
           (out / 'config.js').write_text(Path('web/config.js').read_text(encoding='utf-8'), encoding='utf-8')
           (out / 'gas-shim.js').write_text(Path('web/gas-shim.js').read_text(encoding='utf-8'), encoding='utf-8')
 
-          # Basic safety checks: no Apps Script template markers may leak to Pages.
           built = (out / 'index.html').read_text(encoding='utf-8')
           if '<?!=' in built or "google.script.run" not in scripts:
               raise SystemExit('Static site validation failed.')
           print('Static site built successfully:', len(built), 'bytes')
           PY
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      - name: Publish gh-pages branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/eke-gh-pages
+          cp -a _site /tmp/eke-gh-pages
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      - name: Deploy Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          git config user.name 'eKeberadaan Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git checkout --orphan gh-pages
+          git rm -rf .
+          cp -a /tmp/eke-gh-pages/. .
+          git add -A
+          git commit -m "deploy: static web ${GITHUB_SHA}"
+          git push --force origin HEAD:gh-pages
