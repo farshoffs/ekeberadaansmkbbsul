@@ -34,8 +34,106 @@ input,select,textarea,button{max-width:100%}
   .page-heading>*,.panel-head>*,.report-builder-head>*{min-width:0;max-width:100%}
   .page-heading h1{font-size:clamp(22px,6vw,26px);line-height:1.15}
 
-  .welcome-card{flex-direction:column;align-items:stretch!important;gap:14px}
-  .welcome-right{width:100%;display:flex;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px}
+  /* Home / first screen deliberately follows the compact two-column mobile
+   * composition used by the reference design instead of collapsing everything.
+   */
+  #screen-home .welcome-card{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start!important;
+    gap:12px 14px;
+    padding:18px 16px 18px 20px!important;
+    border-radius:18px;
+  }
+  #screen-home .welcome-card>div:first-child{min-width:0;padding-top:2px}
+  #screen-home .welcome-card .eyebrow{font-size:11px;letter-spacing:.18em}
+  #screen-home .welcome-card h2{
+    font-size:clamp(26px,7.8vw,34px);
+    line-height:1.18;
+    letter-spacing:.01em;
+    margin:8px 0 8px;
+    overflow-wrap:anywhere;
+  }
+  #screen-home .welcome-card p{font-size:14px;line-height:1.45}
+  #screen-home .welcome-right{
+    width:auto;
+    min-width:82px;
+    display:flex;
+    flex-direction:column-reverse!important;
+    align-items:flex-end!important;
+    justify-content:flex-start;
+    gap:10px;
+    margin-left:auto;
+  }
+  #screen-home .welcome-profile.large{
+    width:84px;
+    height:84px;
+    flex:none;
+    font-size:26px;
+    border:3px solid #fff;
+    box-shadow:0 8px 20px rgba(23,32,51,.15);
+  }
+  #screen-home #homeStatusBadge{
+    max-width:126px;
+    padding:7px 10px;
+    font-size:11px;
+    line-height:1.15;
+    white-space:normal;
+    text-align:center;
+    justify-content:center;
+  }
+
+  #screen-home .home-punch-panel{padding:18px 16px!important;border-radius:18px}
+  #screen-home .home-punch-heading{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:flex-start!important;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  #screen-home .home-punch-heading>div{flex:1 1 auto;min-width:0}
+  #screen-home .home-punch-heading h1{
+    font-size:clamp(28px,8vw,34px);
+    line-height:1.15;
+    margin-top:5px;
+  }
+  #screen-home .home-punch-heading #statusBadge{
+    flex:0 0 auto;
+    max-width:126px;
+    margin-top:28px;
+    padding:7px 10px;
+    font-size:11px;
+    line-height:1.15;
+  }
+  #screen-home .home-schedule-grid{
+    display:grid;
+    grid-template-columns:1fr!important;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  #screen-home .home-schedule-grid>div{
+    min-height:78px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:14px 16px;
+    border-radius:14px;
+  }
+  #screen-home .home-schedule-grid span{font-size:12px;margin-bottom:2px}
+  #screen-home .home-schedule-grid b{font-size:20px;line-height:1.2}
+  #screen-home .location-box{
+    flex-direction:row;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    border-radius:14px;
+  }
+  #screen-home .location-box>div{min-width:0;width:auto;flex:1 1 auto}
+  #screen-home .gps-dot{flex:0 0 12px}
+
+  .welcome-card:not(#screen-home .welcome-card){flex-direction:column;align-items:stretch!important;gap:14px}
+  .welcome-right:not(#screen-home .welcome-right){width:100%;display:flex;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px}
   .welcome-profile.large{width:76px;height:76px;font-size:24px}
   .badge{white-space:normal;text-align:center;justify-content:center}
 
@@ -69,6 +167,8 @@ input,select,textarea,button{max-width:100%}
 @media (max-width:575.98px){
   .content.container-fluid{padding:10px!important}
   .panel,.welcome-card{padding:14px!important;border-radius:14px;margin-bottom:12px}
+  #screen-home .welcome-card{padding:17px 14px 17px 18px!important;border-radius:18px}
+  #screen-home .home-punch-panel{padding:18px 16px!important;border-radius:18px}
   .quick-card{padding:15px}
   .quick-grid,.home-links{gap:10px}
 
@@ -90,7 +190,11 @@ input,select,textarea,button{max-width:100%}
 
 @media (max-width:389.98px){
   .summary-grid{grid-template-columns:1fr!important}
-  .welcome-right{align-items:flex-start;flex-direction:column!important}
-  .welcome-profile.large{width:66px;height:66px}
+  #screen-home .welcome-card{grid-template-columns:minmax(0,1fr) 74px;gap:10px}
+  #screen-home .welcome-card h2{font-size:clamp(24px,7.2vw,29px)}
+  #screen-home .welcome-right{min-width:74px;gap:8px}
+  #screen-home .welcome-profile.large{width:70px;height:70px}
+  #screen-home #homeStatusBadge,#screen-home .home-punch-heading #statusBadge{font-size:10px;padding:6px 8px;max-width:108px}
+  #screen-home .home-punch-heading h1{font-size:27px}
   .login-card h1{font-size:22px}
 }
