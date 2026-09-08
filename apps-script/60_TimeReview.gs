@@ -57,8 +57,6 @@ function inferAttendanceFlags_(values, user, settings) {
   const v = padAttendanceValues_(values);
   const flags = splitAttendanceFlags_(v[34]);
   const status = String(v[14] || '').toUpperCase();
-  // New records already persist precise flags. Legacy LEWAT records can be
-  // reconstructed from their recorded times and the user's effective schedule.
   if (flags.length) return flags;
   if (status.includes('LEWAT')) flags.push('LEWAT');
   if (status.includes('BALIK AWAL')) flags.push('BALIK AWAL');
@@ -118,14 +116,17 @@ function ensureTimeReviewRowsForRange_(from, to) {
       toAppend.push([id,now,date,user.email,user.name,user.jobTitle||'',user.category,x.type,x.session,recordTime,x.ref,reviewStatus,reviewedBy,reviewerName,reviewedAt,comment]);
     });
   });
-  if(toAppend.length){const sh=getTimeReviewSheet_();sh.getRange(sh.getLastRow()+1,1,toAppend.length,EK.TIME_REVIEW_HEADERS.length).setValues(toAppend);audit_('MIGRASI_SEMAKAN_WAKTU',`${from}..${to}`,`${toAppend.length} rekod semakan lama diwujudkan`,'SISTEM');}
+  if(toAppend.length){
+    const sh=getTimeReviewSheet_();
+    sh.getRange(sh.getLastRow()+1,1,toAppend.length,EK.TIME_REVIEW_HEADERS.length).setValues(toAppend);
+    invalidateTimeReviewRows_();
+    audit_('MIGRASI_SEMAKAN_WAKTU',`${from}..${to}`,`${toAppend.length} rekod semakan lama diwujudkan`,'SISTEM');
+  }
   return toAppend.length;
 }
 
-
 function getTimeReviewData(token, fromDate, toDate) {
   requireSessionAdmin_(token);
-  // Membuka Semakan Waktu juga membetulkan timezone Spreadsheet kepada MYT jika fail lama menggunakan locale/zona lain.
   ensureMalaysiaSpreadsheetTimeZone_();
   const today=todayKey_(), settings=getSettings_(), systemStartDate=getSystemStartDate_(settings);
   let from=validateDateKey_(fromDate||today);
@@ -146,6 +147,7 @@ function reviewTimeException(token,id,decision,comment) {
   if(!['DIAMBIL MAKLUM','DITOLAK'].includes(decision)) throw new Error('Keputusan tidak sah.');
   const now=new Date(); const sh=getTimeReviewSheet_();
   sh.getRange(rec.row,12,1,5).setValues([[decision,admin.email,admin.name,now,String(comment||'').trim()]]);
+  invalidateTimeReviewRows_();
   audit_('SEMAK_WAKTU',rec.id,`${decision}; ${rec.type}; ${rec.date}; sesi=${rec.session}`,admin.email);
   return {ok:true,status:decision,reviewerName:admin.name,reviewedAt:formatDateTime_(now)};
 }
