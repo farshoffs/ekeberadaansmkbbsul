@@ -86,9 +86,16 @@ jobs:
           grep -R -q 'function getAdminData(' apps-script
           grep -R -q 'function getAttendanceRowIndex_' apps-script
           grep -R -q 'function getSuccessfulLoginEmails_' apps-script
+          grep -R -q 'EK_ATT_INDEX_CACHE_KEY_' apps-script/41_AttendanceData.gs
+          grep -R -q 'EK_TRUSTED_TOUCH_MIN_INTERVAL_MS_' apps-script/11_Sessions.gs
+          grep -R -q 'recent && sameFingerprint' apps-script/11_Sessions.gs
+          grep -R -q 'invalidateTimeReviewRows_();' apps-script/60_TimeReview.gs
+          grep -R -q 'function diagnosePerformanceBackend' apps-script/95_Diagnostics.gs
           grep -R -q 'EK_RUNTIME_ABSENCE_ROWS_' apps-script
           grep -R -q 'Asia/Kuala_Lumpur' apps-script/appsscript.json
           ! grep -R -q "createTemplateFromFile('Index')" apps-script/*.gs
+          test ! -e Code.gs
+          test ! -e .github/workflows/apps-script-deploy.yml
           count=$(find apps-script -maxdepth 1 -name '*.gs' | wc -l)
           echo "Apps Script modules=$count"
-          test "$count" -ge 10
+          test "$count" -ge 16
