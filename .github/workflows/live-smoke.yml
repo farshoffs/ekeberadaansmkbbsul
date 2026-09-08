@@ -78,7 +78,12 @@ jobs:
             --data-urlencode 'bridge=1' \
             --data-urlencode "payload=${payload}" \
             "$BACKEND" -o /tmp/bridge-post.html
-          grep -q 'ci-ping' /tmp/bridge-post.html
-          grep -q 'ready' /tmp/bridge-post.html
-          grep -q 'Asia/Kuala_Lumpur' /tmp/bridge-post.html
-          echo 'BRIDGE_RPC_PING_OK'
+          echo "BRIDGE_POST_BYTES=$(wc -c < /tmp/bridge-post.html)"
+          if grep -q 'ci-ping' /tmp/bridge-post.html && grep -q 'ready' /tmp/bridge-post.html && grep -q 'Asia/Kuala_Lumpur' /tmp/bridge-post.html; then
+            echo 'BRIDGE_RPC_PING_OK'
+          else
+            echo 'Bridge POST response did not contain expected ping payload:'
+            head -c 4000 /tmp/bridge-post.html || true
+            echo
+            exit 1
+          fi
