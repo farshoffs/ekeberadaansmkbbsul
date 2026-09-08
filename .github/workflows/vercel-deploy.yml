@@ -1,6 +1,9 @@
 name: Deploy eKeberadaan to Vercel
 
 on:
+  push:
+    branches: ["migration/nextjs-pwa"]
+    paths: [".github/workflows/vercel-deploy.yml"]
   workflow_dispatch:
     inputs:
       target:
@@ -22,6 +25,7 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +47,7 @@ jobs:
       - name: Pull Vercel project settings
         shell: bash
         run: |
-          if [ "${{ inputs.target }}" = "production" ]; then
+          if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd modern
           else
             vercel pull --yes --environment=preview --token="$VERCEL_TOKEN" --cwd modern
@@ -52,7 +56,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          if [ "${{ inputs.target }}" = "production" ]; then
+          if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel build --prod --token="$VERCEL_TOKEN" --cwd modern
           else
             vercel build --token="$VERCEL_TOKEN" --cwd modern
@@ -62,7 +66,7 @@ jobs:
         id: deploy
         shell: bash
         run: |
-          if [ "${{ inputs.target }}" = "production" ]; then
+          if [ "$DEPLOY_TARGET" = "production" ]; then
             URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --cwd modern)
           else
             URL=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" --cwd modern)
@@ -74,6 +78,6 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### Vercel ${{ inputs.target }} deployment"
+            echo "### Vercel $DEPLOY_TARGET deployment"
             echo "${{ steps.deploy.outputs.url }}"
           } >> "$GITHUB_STEP_SUMMARY"
