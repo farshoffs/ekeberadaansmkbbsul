@@ -2,7 +2,7 @@
   'use strict';
   const cfg=window.EK_CONFIG||{};
   const timeoutMs=Math.max(5000,Number(cfg.BRIDGE_TIMEOUT_MS)||30000);
-  let seq=0,ready=false,probeStarted=false;
+  let seq=0,ready=false;
   const pending=new Map();
 
   function randomToken(bytes=16){
@@ -27,7 +27,7 @@
   }
 
   function isTrustedResultOrigin(origin){
-    if(origin==='null') return true; // HtmlService sandbox may have an opaque origin.
+    if(origin==='null') return true;
     try{
       const u=new URL(origin);
       return u.protocol==='https:' && (
@@ -57,7 +57,7 @@
     }
     el.className='ek-bridge-status '+(kind||'');
     el.textContent=text;
-    if(kind==='ok')setTimeout(()=>el.classList.add('hidden'),1600);
+    if(kind==='ok')setTimeout(()=>el.classList.add('hidden'),1200);
   }
 
   function cleanupRequest(p){
@@ -70,6 +70,7 @@
   function invoke(method,args,success,failure){
     if(!backend){
       const err=new Error('URL backend Apps Script belum dikonfigurasi.');
+      status(err.message,'error');
       failure(err);
       return;
     }
@@ -108,13 +109,13 @@
       if(!p)return;
       pending.delete(id);
       cleanupRequest(p);
+      ready=false;
       failure(new Error('Backend tidak memberi respons. Semak deployment Apps Script atau sambungan internet.'));
     },timeoutMs);
 
     pending.set(id,{success,failure,timer,frame,form});
     try{
       form.submit();
-      // The browser no longer needs the form after navigation has started.
       setTimeout(()=>{ try{ if(form.parentNode)form.remove(); }catch(_e){} },0);
     }catch(err){
       const p=pending.get(id);
@@ -134,6 +135,13 @@
     if(!p)return;
     pending.delete(id);
     cleanupRequest(p);
+
+    // Any valid RPC result proves the bridge is reachable. Avoid a separate
+    // __ping__ request on every page load; the first real API call is the probe.
+    const firstConnection=!ready;
+    ready=true;
+    if(firstConnection)status('Backend tersambung','ok');
+
     if(data.ok){
       try{ p.success(data.value); }catch(e){ console.error(e); }
     }else{
@@ -143,19 +151,8 @@
   });
 
   function probeBackend(){
-    if(probeStarted||!document.body)return;
-    probeStarted=true;
-    if(!backend){ status('Backend Apps Script belum ditetapkan.','error'); return; }
-    status('Menyambung backend…','');
-    invoke('__ping__',[],()=>{
-      ready=true;
-      status('Backend tersambung','ok');
-    },err=>{
-      ready=false;
-      probeStarted=false;
-      console.error('eKeberadaan bridge probe:',err);
-      status('Backend tidak dapat disambungkan.','error');
-    });
+    if(!backend && document.body)status('Backend Apps Script belum ditetapkan.','error');
+    return !!backend;
   }
 
   function runner(success,failure){
