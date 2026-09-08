@@ -38,9 +38,11 @@ npm run dev
 ## Deploy
 Vercel is the simplest deployment target because the project uses server-side routes, HttpOnly cookies, and scheduled cron endpoints. Set the environment variables in the deployment platform before going live.
 
-
 ## Production Google Sheet
 
 Spreadsheet ID: `18XP3epj-kKTgjeeUdYxIrseyh4y_fJHoY0ygNXrtFZA`
 
 The service account configured in deployment must be granted **Editor** access to this spreadsheet.
+
+## Build validation
+The migration branch is validated by GitHub Actions using `npm run typecheck` followed by `npm run build` before deployment.
