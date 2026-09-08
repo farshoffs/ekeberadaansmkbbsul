@@ -37,11 +37,17 @@ Login history
 
 Trusted devices
 - short cache is used for reads;
-- security-sensitive changes invalidate it instead of accepting a potentially stale authorization state.
+- security-sensitive changes invalidate it instead of accepting a potentially stale authorization state;
+- repeated session resume/page refresh within five minutes does not rewrite the same unchanged device/IP row;
+- device/IP changes still persist immediately, and the next normal touch continues the rolling 30-day expiry.
 
 `TIDAK_HADIR` / `SEMAKAN_WAKTU`
 - memoized inside a single Apps Script execution;
 - write operations explicitly invalidate the runtime copy to keep approval/review responses current.
+
+### Concurrency correctness
+
+The punch write path uses Apps Script `LockService` and releases the script lock in `finally`. This prevents simultaneous double-tap/retry requests from racing to create separate attendance rows. New-row writes invalidate the attendance index before future lookups.
 
 ### Intentionally broader operations
 
@@ -57,7 +63,7 @@ GitHub CI additionally performs:
 - concatenated Apps Script syntax validation;
 - headless-Chrome runtime load;
 - static performance budgets;
-- canonical backend contract checks;
+- canonical backend performance/correctness contract checks;
 - live Pages / Apps Script bridge RPC smoke tests.
 
 Optimization rule for future changes: reducing files is not itself a performance goal. Prefer fewer network/RPC round trips, indexed/batched Sheet reads, explicit cache invalidation and small cacheable browser assets.
