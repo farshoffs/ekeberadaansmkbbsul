@@ -44,6 +44,22 @@ jobs:
           cat apps-script/*.gs > /tmp/apps-script-backend.js
           node --check /tmp/apps-script-backend.js
 
+      - name: Verify legacy function parity
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          original=Path('Code.gs').read_text(encoding='utf-8')
+          generated='\n'.join(p.read_text(encoding='utf-8') for p in Path('apps-script').glob('*.gs'))
+          rx=re.compile(r'\bfunction\s+([A-Za-z_$][\w$]*)\s*\(')
+          old=set(rx.findall(original)); new=set(rx.findall(generated))
+          allowed_missing={'include'}
+          missing=sorted(old-new-allowed_missing)
+          print('legacy functions',len(old),'generated functions',len(new),'new helpers',len(new-old))
+          if missing:
+              raise SystemExit('Functions lost during refactor: '+', '.join(missing))
+          PY
+
       - name: Performance budget
         shell: bash
         run: |
