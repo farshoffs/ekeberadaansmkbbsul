@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><base target="_top"><meta charset="utf-8"></head><body>
+<script>
+(() => {
+  'use strict';
+  const ALLOWED_ORIGIN = <?!= JSON.stringify(allowedOrigin) ?>;
+  const RESPONSE = <?!= responseJson ?>;
+
+  function deliver(payload) {
+    try {
+      window.top.postMessage(payload, ALLOWED_ORIGIN);
+    } catch (_e) {}
+  }
+
+  // GET /?bridge=1 is a lightweight health page. POST responses carry the
+  // actual RPC result and are delivered directly to the top-level GitHub Page.
+  if (RESPONSE) {
+    deliver(RESPONSE);
+  } else {
+    deliver({ type: 'EK_BRIDGE_READY' });
+  }
+})();
+</script>
+</body></html>
