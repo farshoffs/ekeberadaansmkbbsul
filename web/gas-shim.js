@@ -9,7 +9,10 @@
   function isValidBackend(url){
     try{
       const u=new URL(url);
-      return u.protocol==='https:' && u.hostname==='script.google.com' && /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(u.pathname);
+      if(u.protocol!=='https:' || u.hostname!=='script.google.com') return false;
+      const standard=/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/;
+      const workspace=/^\/a\/macros\/[A-Za-z0-9.-]+\/s\/[A-Za-z0-9_-]+\/exec$/;
+      return standard.test(u.pathname) || workspace.test(u.pathname);
     }catch(_e){ return false; }
   }
 
