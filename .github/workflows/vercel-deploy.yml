@@ -3,7 +3,9 @@ name: Deploy eKeberadaan to Vercel
 on:
   push:
     branches: ["migration/nextjs-pwa"]
-    paths: [".github/workflows/vercel-deploy.yml"]
+    paths:
+      - ".github/workflows/vercel-deploy.yml"
+      - "modern/**"
   workflow_dispatch:
     inputs:
       target:
