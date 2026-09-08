@@ -1,4 +1,5 @@
 // ---------- Trusted-device session (30-day rolling, max 2 devices) ----------
+const EK_TRUSTED_TOUCH_MIN_INTERVAL_MS_ = 5 * 60 * 1000;
 
 function trustedDeviceCredentialParts_(credential) {
   const raw = String(credential || '').trim();
@@ -160,19 +161,33 @@ function registerOrRefreshTrustedDevice_(user, clientInfo, existingCredential) {
 }
 
 function touchTrustedDevice_(rec, clientInfo, extendExpiry) {
-  const sh = ensureTrustedDevicesSheet_();
   const ci = normalizeClientInfo_(clientInfo);
   const now = new Date();
+  const nextPlatform = platformNameFromClientInfo_(ci);
+  const nextBrowser = browserNameFromUa_(ci.userAgent);
+  const nextName = `${nextPlatform} · ${nextBrowser}`;
+  const nextIp = ci.ip || rec.lastIp || '';
+  const lastSeenMs = dateMillis_(rec.lastSeenAt);
+  const recent = lastSeenMs > 0 && (now.getTime() - lastSeenMs) < EK_TRUSTED_TOUCH_MIN_INTERVAL_MS_;
+  const sameFingerprint = nextName === String(rec.deviceName || '') &&
+    nextPlatform === String(rec.platform || '') &&
+    nextBrowser === String(rec.browser || '') &&
+    nextIp === String(rec.lastIp || '');
+
+  // A refresh a few seconds after the previous page load should not create
+  // another Google Sheets write. IP/device changes still persist immediately.
+  if (extendExpiry && recent && sameFingerprint) return rec;
+
+  const sh = ensureTrustedDevicesSheet_();
   const exp = extendExpiry ? new Date(Date.now() + EK.SESSION.REMEMBER_DAYS * 24 * 60 * 60 * 1000) : rec.expiresAt;
   sh.getRange(rec.row, 3, 1, 7).setValues([[
-    deviceNameFromClientInfo_(ci), platformNameFromClientInfo_(ci), browserNameFromUa_(ci.userAgent), ci.ip || rec.lastIp || '',
+    nextName, nextPlatform, nextBrowser, nextIp,
     rec.createdAt || now, now, exp
   ]]);
-  sh.getRange(rec.row, 7, 1, 3).setNumberFormat('dd/MM/yyyy HH:mm:ss');
-  rec.deviceName = deviceNameFromClientInfo_(ci);
-  rec.platform = platformNameFromClientInfo_(ci);
-  rec.browser = browserNameFromUa_(ci.userAgent);
-  rec.lastIp = ci.ip || rec.lastIp || '';
+  rec.deviceName = nextName;
+  rec.platform = nextPlatform;
+  rec.browser = nextBrowser;
+  rec.lastIp = nextIp;
   rec.lastSeenAt = now;
   rec.expiresAt = exp;
   invalidateTrustedDevicesCache_();
