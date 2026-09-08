@@ -1,0 +1,76 @@
+name: Deploy eKeberadaan to Vercel
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: modern/package-lock.json
+
+      - name: Verify Vercel deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
+          test -n "$VERCEL_ORG_ID" || { echo 'Missing VERCEL_ORG_ID'; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing VERCEL_PROJECT_ID'; exit 1; }
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull Vercel project settings
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd modern
+          else
+            vercel pull --yes --environment=preview --token="$VERCEL_TOKEN" --cwd modern
+          fi
+
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            vercel build --prod --token="$VERCEL_TOKEN" --cwd modern
+          else
+            vercel build --token="$VERCEL_TOKEN" --cwd modern
+          fi
+
+      - name: Deploy
+        id: deploy
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "production" ]; then
+            URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --cwd modern)
+          else
+            URL=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN" --cwd modern)
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployment URL: $URL"
+
+      - name: Summary
+        run: echo "### Vercel ${{ inputs.target }} deployment\n${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
