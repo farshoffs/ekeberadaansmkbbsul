@@ -1,0 +1,48 @@
+name: Validate GitHub Pages migration
+
+on:
+  push:
+    branches:
+      - migration/github-pages-appsscript
+    paths:
+      - 'Code.gs'
+      - 'PagesBridge.gs'
+      - 'Bridge.html'
+      - 'Index.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'Logo.html'
+      - 'web/**'
+      - 'scripts/prepare-pages-backend.py'
+      - '.github/workflows/pages-ci.yml'
+  pull_request:
+    paths:
+      - 'Code.gs'
+      - 'PagesBridge.gs'
+      - 'Bridge.html'
+      - 'Index.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'Logo.html'
+      - 'web/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bridge files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s Code.gs
+          test -s PagesBridge.gs
+          test -s Bridge.html
+          grep -q 'renderPagesBridge_' PagesBridge.gs
+          grep -q 'EK_PAGES_ORIGIN' PagesBridge.gs
+          grep -q 'ALLOWED_METHODS' Bridge.html
+          node --check web/gas-shim.js
+          node --check web/config.js
