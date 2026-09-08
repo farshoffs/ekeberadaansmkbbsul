@@ -34,6 +34,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           index = Path('Index.html').read_text(encoding='utf-8')
           styles = Path('Styles.html').read_text(encoding='utf-8')
@@ -48,6 +49,12 @@ jobs:
           index = index.replace("<?!= include('Styles'); ?>", styles)
           index = index.replace("<?!= include('Logo'); ?>", logo)
           index = index.replace("<?!= include('Scripts'); ?>", scripts)
+
+          page_title = 'e-Keberadaan — Perakam Waktu Digital'
+          if re.search(r'<title>.*?</title>', index, flags=re.I | re.S):
+              index = re.sub(r'<title>.*?</title>', f'<title>{page_title}</title>', index, count=1, flags=re.I | re.S)
+          else:
+              index = index.replace('<base target="_top">', '<base target="_top">\n  <title>' + page_title + '</title>', 1)
 
           script_start = "  <script>\n  window.__EK_SCRIPTS_LOADED__ = false;"
           inject = "  <script src=\"./config.js\"></script>\n  <script src=\"./gas-shim.js\"></script>\n" + script_start
@@ -68,6 +75,8 @@ jobs:
           built = (out / 'index.html').read_text(encoding='utf-8')
           if '<?!=' in built or "google.script.run" not in scripts:
               raise SystemExit('Static site validation failed.')
+          if '<title>' + page_title + '</title>' not in built:
+              raise SystemExit('Page title validation failed.')
           print('Static site built successfully:', len(built), 'bytes')
           PY
 
