@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <base target="_top">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+  <!-- LOGIN PAGE -->
+  <section id="loginPage" class="login-page">
+    <div class="login-card v8-login-card pin-login-card">
+      <div class="login-logo"><?!= include('Logo'); ?></div>
+      <div class="eyebrow">e-Keberadaan</div>
+      <h1 id="loginSchoolName">Perakam Waktu Digital</h1>
+      <p class="login-copy"></p>
+
+      <div id="loginStepReturn" class="login-step hidden">
+        <div class="returning-title">Selamat kembali</div>
+        <div id="returnAccountCard" class="account-box allowed delima-account-card returning-account-card"></div>
+        <button id="continueLastAccountBtn" class="btn primary btn-login-full" type="button" onclick="continueLastAccount()">Teruskan sebagai pengguna ini</button>
+        <button class="change-account-link" type="button" onclick="useDifferentAccount()">Bukan anda? Gunakan akaun DELIMa lain</button>
+        <p class="trusted-device-note">Jika sesi 30 hari anda telah tamat, sistem hanya akan meminta PIN. Akaun DELIMa tidak perlu ditaip semula.</p>
+      </div>
+
+      <div id="loginStepEmail" class="login-step">
+        <label class="login-field">
+          <span>Akaun DELIMa</span>
+          <input id="delimaEmail" type="email" autocomplete="username" inputmode="email" placeholder="nama@moe-dl.edu.my" onkeydown="if(event.key==='Enter'){event.preventDefault();checkDelimaAccount();}">
+        </label>
+        <button id="checkDelimaBtn" class="delima-check-btn" type="button" onclick="checkDelimaAccount()">
+          <span class="delima-icon" aria-hidden="true">→</span>
+          <span><b>Teruskan</b><small>Semak akaun DELIMa berdaftar</small></span>
+        </button>
+        <p class="tiny center">Pengguna baharu akan terus diminta mencipta PIN sendiri.</p>
+      </div>
+
+      <div id="loginStepPin" class="login-step hidden">
+        <div id="delimaAccountCard" class="account-box allowed delima-account-card"></div>
+        <button class="change-account-link" type="button" onclick="useDifferentAccount()">← Gunakan akaun DELIMa lain</button>
+        <label class="login-field password-field pin-field">
+          <span>PIN e-Keberadaan</span>
+          <div class="password-wrap pin-wrap">
+            <input id="loginPin" type="password" autocomplete="current-password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" oninput="sanitizePinInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPinLogin();}">
+            <button type="button" class="password-toggle" onclick="togglePassword('loginPin',this)" aria-label="Tunjukkan PIN">👁</button>
+          </div>
+        </label>
+        <div class="pin-helper">Masukkan PIN 6 digit anda. <span class="pin-forgot">Lupa PIN? Minta Pentadbir Sistem reset PIN anda.</span></div>
+        <button id="pinLoginBtn" class="btn primary btn-login-full" type="button" onclick="submitPinLogin()">Masuk</button>
+        <p class="trusted-device-note">Selepas berjaya, peranti ini akan diingati selama 30 hari.</p>
+      </div>
+
+      <div id="loginStepSetPin" class="login-step hidden">
+        <div id="pinSetupBadge" class="first-login-badge">KALI PERTAMA</div>
+        <h2 id="pinSetupTitle">Cipta PIN anda</h2>
+        <p id="pinSetupCopy" class="login-copy">Gunakan 6 digit nombor yang mudah anda ingat tetapi sukar diteka orang lain.</p>
+        <div id="setupAccountSummary" class="account-box allowed delima-account-card"></div>
+        <button class="change-account-link" type="button" onclick="useDifferentAccount()">← Gunakan akaun DELIMa lain</button>
+        <label class="login-field password-field pin-field">
+          <span>PIN baharu</span>
+          <div class="password-wrap pin-wrap">
+            <input id="newPin" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" oninput="sanitizePinInput(this)">
+            <button type="button" class="password-toggle" onclick="togglePassword('newPin',this)" aria-label="Tunjukkan PIN">👁</button>
+          </div>
+        </label>
+        <label class="login-field password-field pin-field">
+          <span>Sahkan PIN</span>
+          <div class="password-wrap pin-wrap">
+            <input id="confirmPin" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" oninput="sanitizePinInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();submitFirstPin();}">
+            <button type="button" class="password-toggle" onclick="togglePassword('confirmPin',this)" aria-label="Tunjukkan PIN">👁</button>
+          </div>
+        </label>
+        <div class="password-rules pin-rules">Tepat 6 digit nombor · sesi peranti aktif sehingga 30 hari</div>
+        <button id="setPinBtn" class="btn primary btn-login-full" type="button" onclick="submitFirstPin()">Simpan PIN & Teruskan</button>
+      </div>
+
+      <div id="loginError" class="inline-error hidden"></div>
+      <p class="tiny center login-security-note">Selepas 5 percubaan PIN salah, akaun dikunci sementara selama 15 minit.</p>
+    </div>
+  </section>
+
+  <!-- APP SHELL -->
+  <div id="appShell" class="shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand">
+        <div class="brand-logo"><?!= include('Logo'); ?></div>
+        <div><div class="eyebrow">e-Keberadaan</div><b id="sideSchoolName">Kad Perakam Waktu</b></div>
+      </div>
+
+      <nav class="menu">
+        <button class="menu-item active" data-screen="home" onclick="navigate('home',this)"><span>⌂</span> Utama</button>
+        <button class="menu-item" data-screen="mycard" onclick="navigate('mycard',this)"><span>▤</span> Kad Perakam Waktu Saya</button>
+        <button class="menu-item" data-screen="absence" onclick="navigate('absence',this)"><span>◷</span> Tidak Hadir / Keberadaan</button>
+        <button class="menu-item" data-screen="absencepublic" onclick="navigate('absencepublic',this)"><span>☷</span> Senarai Tidak Hadir / Keberadaan</button>
+        <button id="absenceManageMenu" class="menu-item hidden" data-screen="absencemanage" onclick="navigate('absencemanage',this)"><span>✓</span> Semakan Tidak Hadir / Keberadaan</button>
+        <button id="timeReviewMenu" class="menu-item hidden" data-screen="timereview" onclick="navigate('timereview',this)"><span>!</span> Semakan Lewat / Balik Awal</button>
+        <button id="adminMenu" class="menu-item hidden" data-screen="admin" onclick="navigate('admin',this)"><span>⚙</span> Pentadbir Sistem</button>
+      </nav>
+
+      <div class="sidebar-user">
+        <div class="avatar profile-avatar" id="sideAvatar"><span id="userInitial">U</span><img id="sideProfilePhoto" class="profile-img hidden" alt="Gambar profil"></div>
+        <div class="user-meta"><b id="sideUserName">—</b><small id="sideUserRole">—</small></div>
+        <button class="icon-btn" title="Keluar" onclick="logout()">↪</button>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop hidden" onclick="closeMobileMenu()"></div>
+
+    <div class="main-area">
+      <header class="topbar">
+        <button class="hamburger" onclick="toggleMobileMenu()">☰</button>
+        <div><b id="pageTitle">Utama</b><small id="topDate">—</small></div>
+        <div class="top-actions"><span id="topRole" class="role-chip">—</span><button class="btn ghost small" onclick="logout()">Keluar</button></div>
+      </header>
+
+      <main class="content">
+        <section id="errorPanel" class="panel error-panel hidden"></section>
+
+        <!-- HOME SCREEN: main punch screen -->
+        <section id="screen-home" class="screen">
+          <div class="welcome-card welcome-with-profile">
+            <div>
+              <div class="eyebrow">Selamat datang</div>
+              <h2 id="welcomeName">—</h2>
+              <p id="welcomeSub" class="muted">—</p>
+            </div>
+            <div class="welcome-right">
+              <div class="welcome-profile profile-avatar large"><span id="welcomeInitial">U</span><img id="welcomeProfilePhoto" class="profile-img hidden" alt="Gambar profil"></div>
+              <span id="homeStatusBadge" class="badge neutral">BELUM REKOD KEHADIRAN</span>
+            </div>
+          </div>
+
+          <div id="testModeBanner" class="mode-banner test hidden"><b>MOD UJIAN</b><span>Semakan lokasi dan status waktu tidak digunakan. Rekod waktu ditanda sebagai TEST.</span></div>
+
+          <section class="panel home-punch-panel">
+            <div class="page-heading compact home-punch-heading">
+              <div><div class="eyebrow">Menu utama</div><h1>Perakam Waktu Digital</h1><p id="punchInstruction"></p></div>
+              <span id="statusBadge" class="badge neutral">BELUM REKOD KEHADIRAN</span>
+            </div>
+            <div class="schedule-grid home-schedule-grid">
+              <div><span>Waktu Masuk</span><b id="activeInRef">—</b></div>
+              <div><span>Waktu Balik</span><b id="activeOutRef">—</b></div>
+              <div><span>Radius</span><b id="radiusM">—</b></div>
+            </div>
+            <div class="location-box">
+              <div><b id="locationTitle">Lokasi semasa</b><div id="locationText" class="muted">Lokasi akan diperiksa semasa anda merakam waktu.</div></div>
+              <span id="gpsDot" class="gps-dot"></span>
+            </div>
+            <div class="punch-times home-punch-times">
+              <div class="time-card"><span>Rekod Masuk</span><strong id="activeInTime">—</strong></div>
+              <div class="time-card"><span>Rekod Balik</span><strong id="activeOutTime">—</strong></div>
+            </div>
+            <div class="button-row">
+              <button id="btnIn" class="btn primary btn-large" onclick="startPunch('IN')">Rakam Waktu Masuk</button>
+              <button id="btnOut" class="btn dark btn-large" onclick="startPunch('OUT')">Rakam Waktu Balik</button>
+            </div>
+            <p id="punchRuleNote" class="tiny">Server akan mengira jarak GPS. Waktu lewat atau balik awal tetap diterima dan ditanda untuk semakan.</p>
+          </section>
+
+          <div class="quick-grid home-links">
+            <button class="quick-card" onclick="navigate('mycard')"><span class="quick-icon">▤</span><b>Kad Perakam Waktu Saya</b><small>Lihat rekod kehadiran sendiri</small></button>
+            <button class="quick-card" onclick="navigate('absence')"><span class="quick-icon">◷</span><b>Tidak Hadir / Keberadaan</b><small>Hantar dan semak permohonan sendiri</small></button>
+            <button class="quick-card" onclick="navigate('absencepublic')"><span class="quick-icon">☷</span><b>Senarai Tidak Hadir / Keberadaan</b><small>Semak mengikut tarikh, cari pegawai & jana PDF</small></button>
+            <button id="adminQuick" class="quick-card hidden" onclick="navigate('admin')"><span class="quick-icon">⚙</span><b>Pentadbir Sistem</b><small>Laporan, pengguna & tetapan</small></button>
+          </div>
+        </section>
+
+        <!-- MY CARD SCREEN -->
+        <section id="screen-mycard" class="screen hidden">
+          <div class="page-heading punchcard-page-heading">
+            <div><div class="eyebrow">Rekod peribadi</div><h1>Kad Perakam Waktu Saya</h1><p>Paparan digital mengikut format kad mencatit waktu kerajaan.</p></div>
+            <div class="punchcard-actions"><label class="month-picker">Bulan <input id="myCardMonth" type="month" onchange="loadMyCard(true)"></label><button class="btn ghost" onclick="loadMyCard(true)">Muat semula</button><button class="btn dark" onclick="printMyPunchCard()">Cetak</button></div>
+          </div>
+          <div class="card-side-switch" role="group"><button id="cardHalf1Btn" class="card-side-btn active" onclick="setMyCardHalf(1)">1 – 15</button><button id="cardHalf2Btn" class="card-side-btn" onclick="setMyCardHalf(2)">16 – 31</button></div>
+          <section id="physicalPunchCard" class="physical-card" aria-label="Kad mencatit waktu digital">
+            <div class="pc-topline"><div class="pc-government">KERAJAAN MALAYSIA</div><div class="pc-number"><strong id="pcCardNumber">1</strong><span>NOMBOR:</span></div></div>
+            <div class="pc-emblem-wrap"><div class="pc-emblem"><?!= include('Logo'); ?></div></div>
+            <div class="pc-info-row"><span>NAMA :</span><strong id="pcName">—</strong></div>
+            <div class="pc-info-row"><span>KEM / JAB:</span><strong id="pcDepartment">—</strong></div>
+            <div class="pc-title-row"><div><strong>KAD MENCATIT WAKTU</strong><span>BULAN</span></div><b id="pcMonthLabel">—</b></div>
+            <div id="pcLoading" class="pc-loading hidden">Memuatkan Kad Perakam Waktu…</div>
+            <div class="pc-table-wrap"><table class="pc-table"><thead><tr><th rowspan="2" class="pc-date-col">TAR.</th><th colspan="2">SESI 1</th><th colspan="2">SESI 2</th><th rowspan="2" class="pc-note-col">KENYATAAN</th><th rowspan="2" class="pc-sign-col">TT<br>KETUA</th></tr><tr><th>MASUK</th><th>KELUAR</th><th>MASUK</th><th>KELUAR</th></tr></thead><tbody id="myCardRows"></tbody></table></div>
+            <div class="pc-warning"><strong>AMARAN</strong><p>Pegawai / Kakitangan yang menolong mencatitkan waktu kad seseorang Pegawai / Kakitangan lain adalah tidak dibenarkan.</p></div>
+          </section>
+          <div class="pc-legend"><span><i class="legend-dot hadir"></i> Hadir</span><span><i class="legend-dot lewat"></i> Lewat</span><span><i class="legend-dot absent"></i> Tidak hadir</span></div>
+        </section>
+
+        <!-- TIDAK HADIR / KEBERADAAN REQUEST -->
+        <section id="screen-absence" class="screen hidden">
+          <div class="page-heading">
+            <div><div class="eyebrow">Permohonan kepada Pengetua</div><h1>Tidak Hadir / Keberadaan</h1><p>Maklumkan ketidakhadiran atau tempoh keberadaan rasmi di sekolah.</p></div>
+            <div class="toolbar-actions"><button class="btn ghost" onclick="loadAbsenceData(true)">Muat semula</button><button class="btn dark" onclick="navigate('absencepublic')">Lihat Senarai</button></div>
+          </div>
+          <section class="panel absence-form-panel absence-form-full">
+            <div class="panel-head compact"><div><div class="eyebrow">Permohonan baharu</div><h2>Maklum Tidak Hadir / Keberadaan</h2></div></div>
+            <form id="absenceForm" class="form-grid" onsubmit="submitAbsence(event)">
+              <label>Tidak Hadir/Keberadaan<select id="absenceMode" name="mode" required onchange="updateAbsenceModeUi()"><option value="TIDAK_HADIR">Tidak Hadir</option><option value="KEBERADAAN">Keberadaan</option></select></label>
+              <label>Jenis<select id="absenceType" name="type" required></select></label>
+              <label>Tarikh mula<input id="absenceStartDate" name="startDate" type="date" required></label>
+              <label>Tarikh akhir<input id="absenceEndDate" name="endDate" type="date" required></label>
+              <label id="absenceStartTimeWrap" class="hidden">Masa mula<input id="absenceStartTime" name="startTime" type="time"></label>
+              <label id="absenceEndTimeWrap" class="hidden">Masa akhir<input id="absenceEndTime" name="endTime" type="time"></label>
+              <label class="span-2 absence-note-field">Catatan / tujuan<textarea id="absenceNote" name="note" rows="6" placeholder="Catatan tambahan jika perlu"></textarea></label>
+              <div class="span-2"><button class="btn primary" type="submit">Hantar Permohonan</button></div>
+            </form>
+            <p class="tiny">Keberadaan bermaksud hadir di sekolah tetapi tidak tersedia untuk kelas/ganti dalam tempoh masa yang dipilih.</p>
+          </section>
+          <section class="panel">
+            <div class="panel-head compact"><div><div class="eyebrow">Rekod saya</div><h2>Permohonan Saya</h2></div></div>
+            <div class="table-wrap"><table><thead><tr><th>Tarikh Hantar</th><th>Mod</th><th>Jenis</th><th>Tempoh</th><th>Masa</th><th>Status</th><th>Ulasan</th><th>Tindakan</th></tr></thead><tbody id="absenceOwnRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- PUBLIC ABSENCE / PRESENCE LIST — ACCESSIBLE TO ALL LOGGED-IN USERS -->
+        <section id="screen-absencepublic" class="screen hidden">
+          <div class="page-heading">
+            <div><div class="eyebrow">Makluman semua pegawai</div><h1>Senarai Tidak Hadir / Keberadaan</h1><p>Semak permohonan aktif, keberadaan dan ketidakhadiran tanpa penjelasan mengikut tarikh atau tempoh.</p></div>
+            <div class="toolbar-actions"><button class="btn ghost" onclick="loadAbsencePublic(true)">Muat semula</button><button class="btn dark" onclick="generatePublicAbsencePresencePdfClient()">Jana Laporan PDF</button></div>
+          </div>
+          <section class="panel">
+            <div class="preset-row"><button class="btn ghost small" onclick="setAbsencePublicPreset('today')">Hari ini</button><button class="btn ghost small" onclick="setAbsencePublicPreset('week')">Minggu ini</button><button class="btn ghost small" onclick="setAbsencePublicPreset('month')">Bulan ini</button></div>
+            <div class="filter-bar absence-public-filter">
+              <label>Tarikh mula<input id="absencePublicFrom" type="date" onchange="loadAbsencePublic(true)"></label>
+              <label>Tarikh akhir<input id="absencePublicTo" type="date" onchange="loadAbsencePublic(true)"></label>
+              <label class="search-box span-search">Cari<input id="absencePublicSearch" type="search" placeholder="Nama, jawatan, kategori, jenis..." oninput="applyAbsencePublicFilters()"></label>
+              <label>Mod<select id="absencePublicMode" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option value="TIDAK_HADIR">Tidak Hadir</option><option value="KEBERADAAN">Keberadaan</option></select></label>
+              <label>Status<select id="absencePublicStatus" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option>MENUNGGU</option><option>DILULUSKAN</option><option>TIDAK MOHON</option></select></label>
+              <label>Kategori<select id="absencePublicCategory" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+              <div class="filter-count" id="absencePublicCount">0 rekod</div>
+            </div>
+            <div id="absencePublicSummary" class="summary-grid absence-public-summary"></div>
+            <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Mod</th><th>Jenis</th><th>Tempoh / Masa</th><th>Status</th></tr></thead><tbody id="absencePublicRows"></tbody></table></div>
+            <p class="tiny public-list-note">Paparan umum tidak memaparkan emel, catatan peribadi, ulasan semakan atau identiti penyemak.</p>
+          </section>
+        </section>
+
+        <!-- ABSENCE / PRESENCE MANAGEMENT -->
+        <section id="screen-absencemanage" class="screen hidden">
+          <div class="page-heading"><div><div class="eyebrow">Khas Pengurusan / Pentadbir Sistem</div><h1>Semakan Tidak Hadir / Keberadaan</h1><p>Semak permohonan dan tempoh pegawai yang tidak tersedia untuk kelas/ganti.</p></div><div class="toolbar-actions"><button class="btn ghost" onclick="loadAbsenceManagement(true)">Muat semula</button><button class="btn dark" onclick="generateAbsencePresencePdfClient()">Jana Laporan PDF</button></div></div>
+          <section class="panel">
+            <div class="preset-row"><button class="btn ghost small" onclick="setAbsenceManagePreset('today')">Hari ini</button><button class="btn ghost small" onclick="setAbsenceManagePreset('week')">Minggu ini</button><button class="btn ghost small" onclick="setAbsenceManagePreset('month')">Bulan ini</button></div>
+            <div class="filter-bar absence-manage-filter">
+              <label>Tarikh mula<input id="absenceManageFrom" type="date" onchange="loadAbsenceManagement(true)"></label>
+              <label>Tarikh akhir<input id="absenceManageTo" type="date" onchange="loadAbsenceManagement(true)"></label>
+              <label class="search-box span-search">Cari<input id="absenceManageSearch" type="search" placeholder="Nama, jawatan, emel, jenis..." oninput="applyAbsenceManageFilters()"></label>
+              <label>Mod<select id="absenceManageMode" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option value="TIDAK_HADIR">Tidak Hadir</option><option value="KEBERADAAN">Keberadaan</option></select></label>
+              <label>Status<select id="absenceManageStatus" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option>MENUNGGU</option><option>DILULUSKAN</option><option>DITOLAK</option><option>DIBATALKAN</option><option>TIDAK MOHON</option></select></label>
+              <label>Kategori<select id="absenceManageCategory" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+              <div class="filter-count" id="absenceManageCount">0 rekod</div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Mod</th><th>Jenis</th><th>Tempoh / Masa</th><th>Catatan</th><th>Status</th><th>Semakan</th></tr></thead><tbody id="absenceManageRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- TIME EXCEPTION REVIEW -->
+        <section id="screen-timereview" class="screen hidden">
+          <div class="page-heading"><div><div class="eyebrow">Pentadbir Sistem sahaja</div><h1>Semakan Lewat / Balik Awal</h1><p>Semak rekod waktu yang melepasi waktu rujukan. Semua waktu menggunakan Malaysia Time (MYT), GMT+8 — Asia/Kuala_Lumpur.</p></div><div class="toolbar-actions"><button class="btn ghost" onclick="loadTimeReview(true)">Muat semula</button><button class="btn dark" onclick="generateTimeReviewPdfClient()">Jana Laporan PDF</button></div></div>
+          <section class="panel">
+            <div class="preset-row"><button class="btn ghost small" onclick="setTimeReviewPreset('today')">Hari ini</button><button class="btn ghost small" onclick="setTimeReviewPreset('week')">Minggu ini</button><button class="btn ghost small" onclick="setTimeReviewPreset('month')">Bulan ini</button></div>
+            <div class="filter-bar time-review-filter">
+              <label>Tarikh mula<input id="timeReviewFrom" type="date" onchange="loadTimeReview(true)"></label>
+              <label>Tarikh akhir<input id="timeReviewTo" type="date" onchange="loadTimeReview(true)"></label>
+              <label class="search-box span-search">Cari<input id="timeReviewSearch" type="search" placeholder="Nama, jawatan, emel..." oninput="applyTimeReviewFilters()"></label>
+              <label>Jenis<select id="timeReviewType" onchange="applyTimeReviewFilters()"><option value="">Semua</option><option>LEWAT</option><option>BALIK AWAL</option></select></label>
+              <label>Status<select id="timeReviewStatus" onchange="applyTimeReviewFilters()"><option value="">Semua</option><option>BELUM DIAMBIL MAKLUM</option><option>DIAMBIL MAKLUM</option><option>DITOLAK</option></select></label>
+              <div class="filter-count" id="timeReviewCount">0 rekod</div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Tarikh</th><th>Jenis</th><th>Sesi</th><th>Waktu</th><th>Rujukan</th><th>Status</th><th>Tindakan / Pelulus</th></tr></thead><tbody id="timeReviewRows"></tbody></table></div>
+          </section>
+        </section>
+
+        <!-- ADMIN SCREEN -->
+        <section id="screen-admin" class="screen hidden">
+          <div class="page-heading"><div><div class="eyebrow">Akses Pentadbir Sistem</div><h1>Panel Pentadbir</h1><p>Laporan, pengurusan pengguna, PIN dan tetapan sistem.</p></div><button class="btn ghost" onclick="refreshAdmin()">Muat semula</button></div>
+          <section id="adminPanel" class="panel">
+            <div class="tabs"><button class="tab active" data-tab="report-builder" onclick="switchTab('report-builder', this)">Jana Laporan</button><button class="tab" data-tab="report" onclick="switchTab('report', this)">Paparan Harian</button><button class="tab" data-tab="users" onclick="switchTab('users', this)">Pengguna</button><button class="tab" data-tab="settings" onclick="switchTab('settings', this)">Tetapan</button></div>
+
+            <div id="tab-report-builder" class="tab-body">
+              <section class="report-builder">
+                <div class="report-builder-head">
+                  <div><div class="eyebrow">Jana laporan</div><h3>Laporan Kehadiran / Keberadaan</h3><p>Pilih tempoh laporan. Sistem menggabungkan rekod kehadiran, lewat/balik awal, tidak hadir dan rekod keberadaan.</p></div>
+                  <div class="report-builder-actions"><button class="btn primary" type="button" onclick="generateAttendancePresenceReportPdfClient()">Jana PDF</button><button class="btn ghost" type="button" onclick="generateAttendancePresenceReportSheetClient()">Jana ke Sheet</button></div>
+                </div>
+                <div class="report-builder-grid">
+                  <label>Jenis laporan<select id="attendanceReportType" onchange="updateAttendanceReportPeriod()"><option value="DAILY">Harian</option><option value="WEEKLY">Mingguan</option><option value="MONTHLY">Bulanan</option><option value="RANGE">Tempoh</option></select></label>
+                  <label id="attendanceReportDateWrap">Tarikh rujukan<input id="attendanceReportDate" type="date" onchange="updateAttendanceReportPeriod()"></label>
+                  <label id="attendanceReportMonthWrap" class="hidden">Bulan<input id="attendanceReportMonth" type="month" onchange="updateAttendanceReportPeriod()"></label>
+                  <label id="attendanceReportFromWrap" class="hidden">Dari<input id="attendanceReportFrom" type="date" onchange="updateAttendanceReportPeriod()"></label>
+                  <label id="attendanceReportToWrap" class="hidden">Hingga<input id="attendanceReportTo" type="date" onchange="updateAttendanceReportPeriod()"></label>
+                </div>
+                <div class="report-period-readout"><span>Tempoh laporan</span><b id="attendanceReportRangeText">—</b></div>
+              </section>
+            </div>
+
+            <div id="tab-report" class="tab-body hidden">
+              <div class="report-section-label"><div><b>Paparan Harian</b><small>Semak dan ubah rekod bagi satu tarikh.</small></div></div>
+              <div class="toolbar report-main-toolbar"><label>Tarikh <input id="reportDate" type="date" onchange="refreshAdmin()"></label><div class="toolbar-actions"><button class="btn ghost" onclick="repairDuplicateAttendance()">Baiki duplikat</button><button class="btn ghost" onclick="generateReportSheet()">Jana ke Sheet</button></div></div>
+              <div id="summaryCards" class="summary-grid"></div>
+              <div class="filter-bar report-filter-bar">
+                <label class="search-box span-search">Carian dinamik<input id="reportSearch" type="search" placeholder="Nama, emel, kategori, status, sumber, sebab, IP..." oninput="applyReportFilters()"></label>
+                <label>Kategori<select id="reportCategoryFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+                <label>Status<select id="reportStatusFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>HADIR</option><option>LEWAT</option><option>BALIK AWAL</option><option>TIDAK HADIR</option><option>BELUM HADIR</option></select></label>
+                <label>Sumber<select id="reportSourceFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>GPS</option><option>TEST</option><option>ADMIN</option><option>TIDAK_HADIR</option></select></label>
+                <div class="filter-count" id="reportFilterCount">0 rekod</div>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Nama</th><th>Jawatan / Kategori</th><th>Status</th><th>Masuk 1</th><th>Keluar 1</th><th>Masuk 2</th><th>Keluar 2</th><th>Sumber / Sebab</th><th>IP / Semakan</th><th>Tindakan</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+            </div>
+
+            <div id="tab-users" class="tab-body hidden">
+              <div class="toolbar user-toolbar"><div class="toolbar-actions"><button class="btn primary" onclick="openUserModal()">+ Tambah pengguna</button><button class="btn ghost" onclick="bulkGeneratePasswords()">Reset PIN Dipilih</button><button class="btn ghost" onclick="syncProfilePhotos()">Sync Gambar Profil</button></div><span id="bulkSelectionCount" class="selection-count">0 dipilih</span></div>
+              <div class="filter-bar user-filter-bar">
+                <label class="search-box span-search">Carian dinamik<input id="userSearch" type="search" placeholder="Nama, emel, kategori, catatan, waktu, status PIN..." oninput="applyUserFilters()"></label>
+                <label>Kategori<select id="userCategoryFilter" onchange="applyUserFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+                <label>Akaun<select id="userActiveFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="active">Aktif</option><option value="inactive">Tidak aktif</option></select></label>
+                <label>Admin<select id="userAdminFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="yes">Pentadbir Sistem</option><option value="no">Bukan Admin</option></select></label>
+                <label>PIN<select id="userPasswordFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="ready">Sedia</option><option value="temp">Perlu tetapkan semula</option><option value="unset">Belum ditetapkan</option><option value="locked">Dikunci</option></select></label>
+                <div class="filter-count" id="userFilterCount">0 pengguna</div>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th class="select-col"><input id="selectAllUsers" type="checkbox" onchange="toggleSelectAllUsers(this.checked)" title="Pilih semua yang sedang dipaparkan"></th><th>Aktif</th><th>Nama / Jawatan</th><th>Emel</th><th>Kategori</th><th>Pentadbir Sistem</th><th>PIN</th><th>Waktu Sesi / Catatan</th><th>Tindakan</th></tr></thead><tbody id="userRows"></tbody></table></div>
+            </div>
+
+            <div id="tab-settings" class="tab-body hidden">
+              <form id="settingsForm" class="form-grid settings-form-v9" onsubmit="saveSettings(event)">
+                <label class="span-2">Nama sekolah<input name="schoolName" required></label>
+                <label>Mod sistem<select name="systemMode" id="systemModeSelect" onchange="updateModeSettingHint()"><option value="REAL">MOD SEBENAR</option><option value="TEST">MOD TEST</option></select></label>
+                <div class="setting-hint" id="modeSettingHint">MOD SEBENAR menggunakan semakan lokasi; masa hanya menentukan status LEWAT / BALIK AWAL.</div>
+                <label>Latitude pusat<input id="settingLat" name="schoolLat" type="number" step="any" oninput="syncMapFromInputs()"></label>
+                <label>Longitude pusat<input id="settingLng" name="schoolLng" type="number" step="any" oninput="syncMapFromInputs()"></label>
+                <label>Radius (meter)<input id="settingRadius" name="radiusM" type="number" min="1" max="5000" required oninput="syncMapRadius()"></label>
+                <label>Had ketepatan GPS (m)<input name="maxGpsAccuracyM" type="number" min="1" max="2000" required></label>
+                <div class="span-2 map-setting-block">
+                  <div class="map-setting-head"><div><b>Tetapkan lokasi secara visual</b><small>Klik pada peta untuk pindahkan pusat radius atau gunakan lokasi peranti.</small></div><button class="btn ghost small" type="button" onclick="useCurrentLocationForSetting()">Gunakan lokasi saya</button></div>
+                  <div id="locationPickerMap" class="location-picker-map"></div>
+                  <div class="map-coord-readout"><span>Pusat: <b id="mapCoordReadout">—</b></span><span>Radius: <b id="mapRadiusReadout">—</b></span></div>
+                </div>
+                <label>Sesi 1 · Waktu Masuk<input name="defaultS1In" type="time" required><small>Selepas waktu ini = LEWAT, tetapi rekod tetap diterima.</small></label>
+                <label>Sesi 1 · Waktu Keluar<input name="defaultS1Out" type="time" required><small>Sebelum waktu ini = BALIK AWAL, tetapi rekod tetap diterima.</small></label>
+                <label>Sesi 2 · Waktu Masuk<input name="defaultS2In" type="time"><small>Opsyenal. Jika kosong, hanya Sesi 1 digunakan.</small></label>
+                <label>Sesi 2 · Waktu Keluar<input name="defaultS2Out" type="time"><small>Opsyenal. Isi bersama Waktu Masuk Sesi 2 untuk mengaktifkan 4 rakaman sehari.</small></label>
+                <label>Tak hadir selepas<input name="absentAfter" type="time" required></label>
+                <label>Peringatan Rekod Waktu Masuk<select name="punchReminderEnabled"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select></label>
+                <label>Waktu peringatan<input name="punchReminderTime" type="time" required></label>
+                <label class="span-2">Hari bekerja<input name="workingDays" placeholder="SUN,MON,TUE,WED,THU" required><small>Gunakan kod SUN, MON, TUE, WED, THU, FRI, SAT. Default Kedah: SUN–THU.</small></label>
+                <label>Rekod IP awam<select name="ipTrackingEnabled"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select></label>
+                <label>Polisi IP ketika rakam waktu<select name="ipPunchPolicy"><option value="WARN">AMARAN — rekod tetapi benarkan</option><option value="BLOCK">SEKAT — tolak IP sama</option><option value="OFF">OFF — rekod sahaja</option></select></label>
+                <div class="span-2 setting-hint ip-policy-hint"><b>Semakan IP satu jam:</b> jika IP awam yang sama digunakan oleh akaun lain dalam jam yang sama, AMARAN akan merekodkan pertindihan tetapi rekod diterima. SEKAT akan menolak rakaman waktu. Untuk Wi‑Fi sekolah/shared network, AMARAN lebih sesuai kerana ramai peranti boleh berkongsi satu IP awam.</div>
+                <label class="span-2">Folder induk gambar profil Google Drive<input name="profileRootFolderId" placeholder="Folder ID Google Drive"></label>
+                <div class="span-2 profile-sync-card"><div><b>Struktur gambar profil</b><small>01 - Pengurusan / 02 - Guru / 03 - Anggota Kumpulan Pelaksana → folder nama pegawai → eoperasi.png</small></div><button class="btn ghost" type="button" onclick="syncProfilePhotos()">Sync Sekarang</button></div>
+                <div class="span-2"><button class="btn primary" type="submit">Simpan tetapan</button></div>
+              </form>
+            </div>
+          </section>
+        </section>
+
+        <!-- ADMIN DIGITAL Kad Perakam Waktu -->
+        <section id="screen-admincard" class="screen hidden">
+          <div class="page-heading punchcard-page-heading">
+            <div><button class="back-link" onclick="navigate('admin')">← Kembali ke Laporan</button><div class="eyebrow">Kad Perakam Waktu Pegawai</div><h1 id="adminCardTitle">—</h1><p id="adminCardEmail" class="muted">—</p></div>
+            <div class="punchcard-actions"><label class="month-picker">Bulan <input id="adminCardMonth" type="month" onchange="loadAdminCard(true)"></label><button class="btn ghost" onclick="loadAdminCard(true)">Muat semula</button></div>
+          </div>
+          <div class="card-side-switch"><button id="adminCardHalf1Btn" class="card-side-btn active" onclick="setAdminCardHalf(1)">1 – 15</button><button id="adminCardHalf2Btn" class="card-side-btn" onclick="setAdminCardHalf(2)">16 – 31</button></div>
+          <section class="physical-card admin-physical-card">
+            <div class="pc-topline"><div class="pc-government">KERAJAAN MALAYSIA</div><div class="pc-number"><strong id="apcCardNumber">1</strong><span>NOMBOR:</span></div></div>
+            <div class="pc-emblem-wrap"><div class="pc-emblem"><?!= include('Logo'); ?></div></div>
+            <div class="pc-info-row"><span>NAMA :</span><strong id="apcName">—</strong></div>
+            <div class="pc-info-row"><span>KEM / JAB:</span><strong id="apcDepartment">—</strong></div>
+            <div class="pc-title-row"><div><strong>KAD MENCATIT WAKTU</strong><span>BULAN</span></div><b id="apcMonthLabel">—</b></div>
+            <div id="apcLoading" class="pc-loading hidden">Memuatkan Kad Perakam Waktu…</div>
+            <div class="pc-table-wrap"><table class="pc-table"><thead><tr><th rowspan="2" class="pc-date-col">TAR.</th><th colspan="2">SESI 1</th><th colspan="2">SESI 2</th><th rowspan="2" class="pc-note-col">KENYATAAN</th><th rowspan="2" class="pc-sign-col">TT<br>KETUA</th></tr><tr><th>MASUK</th><th>KELUAR</th><th>MASUK</th><th>KELUAR</th></tr></thead><tbody id="adminCardRows"></tbody></table></div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="modal" class="modal hidden" onclick="if(event.target===this) closeModal()"><div class="modal-card"><button class="modal-close" onclick="closeModal()">×</button><div id="modalContent"></div></div></div>
+  <div id="toast" class="toast hidden"></div>
+  <script>
+  window.__EK_SCRIPTS_LOADED__ = false;
+  <?!= include('Scripts'); ?>
+  if (!window.__EK_SCRIPTS_LOADED__) {
+    console.error('eKeberadaan: Scripts.html gagal dimuatkan.');
+  }
+  </script>
+</body>
+</html>
