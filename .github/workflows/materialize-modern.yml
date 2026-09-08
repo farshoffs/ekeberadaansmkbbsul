@@ -1,0 +1,55 @@
+name: Materialize modern eKeberadaan web
+
+on:
+  push:
+    branches:
+      - migration/nextjs-pwa
+    paths:
+      - _modern_sync/READY
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: migration/nextjs-pwa
+          fetch-depth: 0
+
+      - name: Reconstruct modern source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat _modern_sync/modern.part.000 \
+              _modern_sync/modern.part.001 \
+              _modern_sync/modern.part.002 \
+              _modern_sync/modern.part.003 \
+              _modern_sync/modern.part.004 \
+              _modern_sync/modern.part.005 \
+              _modern_sync/modern.part.006 \
+              _modern_sync/modern.part.007 \
+              > /tmp/eke-modern.tar.gz.b64
+          echo '53c5f49ae647e8e77a001bd402a44ae35a8f3acc72566ac113b98816703ef796  /tmp/eke-modern.tar.gz.b64' | sha256sum -c -
+          base64 -d /tmp/eke-modern.tar.gz.b64 > /tmp/eke-modern.tar.gz
+          echo '9df66c0d32b10f8fe0476cc690a00d82f99a9218ef6714e7441d531a7510f0cd  /tmp/eke-modern.tar.gz' | sha256sum -c -
+          rm -rf modern
+          mkdir -p modern
+          tar -xzf /tmp/eke-modern.tar.gz -C modern
+
+      - name: Commit complete modern source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'eKeberadaan Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add modern
+          if git diff --cached --quiet; then
+            echo 'No source changes to commit.'
+            exit 0
+          fi
+          git commit -m 'feat: materialize complete Next.js web build'
+          git push origin HEAD:migration/nextjs-pwa

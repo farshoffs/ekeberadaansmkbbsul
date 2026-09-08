@@ -1,0 +1,15 @@
+import {TZ} from './constants';
+export function myParts(d=new Date()){const p=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(d);const o:Record<string,string>={};for(const x of p)if(x.type!=='literal')o[x.type]=x.value;return o}
+export function todayKey(d=new Date()){const p=myParts(d);return`${p.year}-${p.month}-${p.day}`}
+export function nowTime(d=new Date()){const p=myParts(d);return`${p.hour}:${p.minute}`}
+export function formatTime(v:unknown){const s=String(v??'').trim();if(!s)return'';const m=s.match(/(?:T|\s)(\d{1,2}):(\d{2})/);if(m)return`${m[1].padStart(2,'0')}:${m[2]}`;const only=s.match(/^(\d{1,2}):(\d{2})/);if(only)return`${only[1].padStart(2,'0')}:${only[2]}`;const d=new Date(s);if(!Number.isNaN(d.getTime())){const p=myParts(d);return`${p.hour}:${p.minute}`}return s}
+export function normalizeTime(v:unknown,optional=true){const s=String(v??'').trim();if(!s)return optional?'':'';const m=s.match(/^(\d{1,2}):(\d{2})/);if(!m)throw new Error('Format masa mesti HH:mm.');const h=Number(m[1]),n=Number(m[2]);if(h>23||n>59)throw new Error('Masa tidak sah.');return`${String(h).padStart(2,'0')}:${String(n).padStart(2,'0')}`}
+export function minutes(t:string){if(!t)return NaN;const [h,m]=t.split(':').map(Number);return h*60+m}
+export function dateTimeIso(date:string,time:string){return`${date}T${time}:00+08:00`}
+export function parseDate(v:unknown){if(v instanceof Date)return v.getTime();const s=String(v??'').trim();if(!s)return NaN;const my=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);if(my)return new Date(`${my[3]}-${my[2].padStart(2,'0')}-${my[1].padStart(2,'0')}T${(my[4]||'00').padStart(2,'0')}:${my[5]||'00'}:${my[6]||'00'}+08:00`).getTime();return new Date(s).getTime()}
+export function dateKey(v:unknown){const s=String(v??'').trim();const iso=s.match(/^(\d{4}-\d{2}-\d{2})/);if(iso)return iso[1];const my=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(my)return`${my[3]}-${my[2].padStart(2,'0')}-${my[1].padStart(2,'0')}`;const t=parseDate(v);return Number.isFinite(t)?todayKey(new Date(t)):''}
+export function plusDays(key:string,n:number){const d=new Date(`${key}T12:00:00+08:00`);d.setUTCDate(d.getUTCDate()+n);return todayKey(d)}
+export function dateRange(a:string,b:string,max=366){const out:string[]=[];for(let k=a;k<=b&&out.length<max;k=plusDays(k,1))out.push(k);return out}
+export function validateDate(v:unknown){const k=dateKey(v);if(!/^\d{4}-\d{2}-\d{2}$/.test(k))throw new Error('Tarikh tidak sah.');return k}
+export function hourBucket(v:unknown){const t=parseDate(v);const p=myParts(Number.isFinite(t)?new Date(t):new Date());return`${p.year}-${p.month}-${p.day} ${p.hour}`}
+export function workingDay(key:string,csv:string){const names=['SUN','MON','TUE','WED','THU','FRI','SAT'];const d=new Date(`${key}T12:00:00+08:00`);return csv.split(',').map(x=>x.trim().toUpperCase()).includes(names[d.getUTCDay()])}

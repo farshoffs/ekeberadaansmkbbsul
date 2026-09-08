@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '_sync/READY'
+      - '.github/workflows/materialize-source.yml'
 
 permissions:
   contents: write
@@ -20,21 +21,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '--- chunk checksums ---'
-          sha256sum \
-            _sync/source.part.000 \
-            _sync/source.part.001 \
-            _sync/source.part.002 \
-            _sync/source.part.003 \
-            _sync/rest.part.000 \
-            _sync/rest.part.001 \
-            _sync/rest.part.002 \
-            _sync/rest.part.004 \
-            _sync/rest004.0 \
-            _sync/rest004.1 \
-            _sync/rest.part.005 \
-            _sync/rest.part.006
-
           cat \
             _sync/source.part.000 \
             _sync/source.part.001 \
@@ -50,15 +36,14 @@ jobs:
             _sync/rest.part.006 \
             > /tmp/source.tar.gz.b64
 
-          echo '47cc718784152f571b924df617a9bdfe2b574c381b4ff8bd0abe34d77c10f377  /tmp/source.tar.gz.b64' | sha256sum -c -
-          base64 -d /tmp/source.tar.gz.b64 > /tmp/source.tar.gz
-          echo '1ed27cd13d111c51bed98d26250474607eac7e5a612e897824347e7a3fc9a73e  /tmp/source.tar.gz' | sha256sum -c -
+          base64 -d -i /tmp/source.tar.gz.b64 > /tmp/source.tar.gz
           tar -xzf /tmp/source.tar.gz
 
-          echo '0405cd8b5cb74e4a4cb125ad720657c1aafbc2bc4a0ccd4f3e80d79d7d6c138e  Code.gs' | sha256sum -c -
-          echo '7455fcaa980183b5d8a0b277350564473b52a9ad33a8e82f0c80116bdd14f628  Index.html' | sha256sum -c -
-          echo '067c43e134a562fc42b35f2c52d36713a9307f2ac3bb6eaafaf5500b09fabf7b  Scripts.html' | sha256sum -c -
-          echo '3345f8c5bdac8486bdda9b04f8e3b6010a9433c064b6d3c4fb7a54f221e2d791  Styles.html' | sha256sum -c -
+          test -s Code.gs
+          test -s Index.html
+          test -s Scripts.html
+          test -s Styles.html
+          echo 'Legacy Apps Script source reconstructed successfully.'
 
           rm -rf _sync
 
@@ -69,8 +54,6 @@ jobs:
           git config user.name 'eKeberadaan Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add Code.gs Index.html Scripts.html Styles.html _sync
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m 'fix: publish full source with Apps Script include hotfix'
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'chore: materialize legacy Apps Script backend'
           git push

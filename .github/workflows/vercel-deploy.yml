@@ -1,0 +1,93 @@
+name: Deploy eKeberadaan to Vercel
+
+on:
+  push:
+    branches: ["migration/nextjs-pwa"]
+    paths:
+      - ".github/workflows/vercel-deploy.yml"
+      - "modern/**"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
+      VERCEL_PROJECT: ekeberadaan-smkbbsul
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve Vercel project from token scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
+
+          PROJECTS_STATUS=$(curl -sS -o /tmp/vercel-projects.json -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            https://api.vercel.com/v9/projects)
+          echo "Vercel projects API: HTTP $PROJECTS_STATUS"
+          if [ "$PROJECTS_STATUS" != "200" ]; then
+            jq -c '{error: .error}' /tmp/vercel-projects.json || true
+            exit 1
+          fi
+
+          PROJECT_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .id' /tmp/vercel-projects.json | head -n1)
+          ORG_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .accountId' /tmp/vercel-projects.json | head -n1)
+          test -n "$PROJECT_ID" && test "$PROJECT_ID" != "null" || { echo "Project not available to token"; exit 1; }
+          test -n "$ORG_ID" && test "$ORG_ID" != "null" || { echo "Project accountId unavailable"; exit 1; }
+
+          echo "Resolved Vercel project: $VERCEL_PROJECT"
+          echo "VERCEL_ORG_ID=$ORG_ID" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Link resolved Vercel project locally
+        shell: bash
+        run: |
+          rm -rf modern/.vercel
+          mkdir -p modern/.vercel
+          jq -n \
+            --arg orgId "$VERCEL_ORG_ID" \
+            --arg projectId "$VERCEL_PROJECT_ID" \
+            '{orgId:$orgId, projectId:$projectId}' > modern/.vercel/project.json
+
+      - name: Deploy source
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$DEPLOY_TARGET" = "production" ]; then
+            URL=$(vercel deploy --yes --prod --token="$VERCEL_TOKEN" --cwd modern)
+          else
+            URL=$(vercel deploy --yes --token="$VERCEL_TOKEN" --cwd modern)
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Deployment URL: $URL"
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Vercel $DEPLOY_TARGET deployment"
+            echo "${{ steps.deploy.outputs.url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
