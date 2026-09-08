@@ -2,24 +2,20 @@ name: Materialize modern eKeberadaan web
 
 on:
   push:
-    branches: ["migration/nextjs-pwa"]
+    branches:
+      - migration/nextjs-pwa
     paths:
-      - '_modern_sync/READY'
-  pull_request:
-    branches: ["main"]
-    paths:
-      - '_modern_sync/**'
-      - '.github/workflows/materialize-modern.yml'
+      - _modern_sync/READY
 
 permissions:
   contents: write
 
 jobs:
   materialize:
-    if: github.event.head_commit.message != 'feat: materialize complete Next.js web build'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
         with:
           ref: migration/nextjs-pwa
           fetch-depth: 0
@@ -52,6 +48,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add modern
           if git diff --cached --quiet; then
+            echo 'No source changes to commit.'
             exit 0
           fi
           git commit -m 'feat: materialize complete Next.js web build'
