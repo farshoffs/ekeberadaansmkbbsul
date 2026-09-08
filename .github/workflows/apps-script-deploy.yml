@@ -15,13 +15,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Generate backend modules
-        run: python3 scripts/materialize-backend.py
-
       - name: Validate backend syntax
         run: |
           cat apps-script/*.gs > /tmp/apps-script.js
           node --check /tmp/apps-script.js
+          grep -R -q 'function doPost(e)' apps-script
+          grep -R -q 'function getAttendanceRowIndex_' apps-script
 
       - name: Check deployment secrets
         shell: bash
@@ -46,8 +45,8 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
           printf '{"scriptId":"%s","rootDir":"apps-script"}\n' "$APPS_SCRIPT_ID" > .clasp.json
 
-      - name: Push modular Apps Script source
+      - name: Push canonical modular source
         run: clasp push --force
 
       - name: Deployment note
-        run: echo 'Modular source pushed. If the existing Web App uses a versioned deployment, publish a New version in Apps Script Manage deployments.'
+        run: echo 'Modular source pushed. Publish a New version from Apps Script Manage deployments for the existing /exec URL.'
