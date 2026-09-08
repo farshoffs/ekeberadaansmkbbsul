@@ -83,6 +83,8 @@ jobs:
           grep -R -q 'function loginWithPin(' apps-script
           grep -R -q 'function resumeSession(' apps-script
           grep -R -q 'function punch(' apps-script
+          grep -R -q 'LockService.getScriptLock()' apps-script/20_UserApi.gs
+          grep -R -q 'lock.releaseLock()' apps-script/20_UserApi.gs
           grep -R -q 'function getAdminData(' apps-script
           grep -R -q 'function getAttendanceRowIndex_' apps-script
           grep -R -q 'function getSuccessfulLoginEmails_' apps-script
