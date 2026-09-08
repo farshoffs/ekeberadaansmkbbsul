@@ -8,12 +8,8 @@ on:
       - 'Logo.html'
       - 'Scripts.html'
       - 'Styles.html'
-      - 'Bridge.html'
-      - 'Bridges.gs'
-      - 'Code.gs'
-      - 'appsscript.json'
       - 'web/**'
-      - 'scripts/**'
+      - 'scripts/build-pages.py'
       - 'apps-script/**'
       - '.github/workflows/performance-ci.yml'
   workflow_dispatch:
@@ -33,32 +29,13 @@ jobs:
       - name: Build modular static site
         run: python3 scripts/build-pages.py
 
-      - name: Materialize modular Apps Script backend
-        run: python3 scripts/materialize-backend.py
-
-      - name: Validate generated JavaScript
+      - name: Validate frontend and backend syntax
         shell: bash
         run: |
           set -euo pipefail
           for f in _site/assets/*.js; do node --check "$f"; done
           cat apps-script/*.gs > /tmp/apps-script-backend.js
           node --check /tmp/apps-script-backend.js
-
-      - name: Verify legacy function parity
-        run: |
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-          original=Path('Code.gs').read_text(encoding='utf-8')
-          generated='\n'.join(p.read_text(encoding='utf-8') for p in Path('apps-script').glob('*.gs'))
-          rx=re.compile(r'\bfunction\s+([A-Za-z_$][\w$]*)\s*\(')
-          old=set(rx.findall(original)); new=set(rx.findall(generated))
-          allowed_missing={'include'}
-          missing=sorted(old-new-allowed_missing)
-          print('legacy functions',len(old),'generated functions',len(new),'new helpers',len(new-old))
-          if missing:
-              raise SystemExit('Functions lost during refactor: '+', '.join(missing))
-          PY
 
       - name: Performance budget
         shell: bash
@@ -75,12 +52,18 @@ jobs:
           test "$html" -lt 100000
           test "$js" -lt 180000
           test "$css" -lt 100000
+          test "$total" -lt 400000
 
-      - name: Verify backend performance contract
+      - name: Verify canonical backend contract
         shell: bash
         run: |
           set -euo pipefail
           grep -R -q 'function doPost(e)' apps-script
+          grep -R -q 'function checkDelimaAccount(' apps-script
+          grep -R -q 'function loginWithPin(' apps-script
+          grep -R -q 'function resumeSession(' apps-script
+          grep -R -q 'function punch(' apps-script
+          grep -R -q 'function getAdminData(' apps-script
           grep -R -q 'function getAttendanceRowIndex_' apps-script
           grep -R -q 'function getSuccessfulLoginEmails_' apps-script
           grep -R -q 'EK_RUNTIME_ABSENCE_ROWS_' apps-script
