@@ -9,6 +9,20 @@ This project intentionally does not use `clasp`. The GitHub folder `apps-script/
 - Keep the existing Web App deployment and publish a New Version so the `/exec` URL remains unchanged.
 - Do not paste any secret into GitHub Pages.
 
+## Critical migration warning
+
+Google Apps Script compiles every `.gs` file in one shared global scope. The modular backend declares `const EK` in `00_Core.gs`. The old monolithic `Code.gs` also declared `EK`, so both cannot exist together with their old contents.
+
+Before creating `00_Core`, first make an external backup of the old Apps Script source, then REMOVE or completely EMPTY every legacy `.gs` file that contains the previous backend code, especially `Code.gs`.
+
+Renaming an old script file does not isolate it; any `.gs` file in the project is still compiled into the same global scope.
+
+If you see:
+
+`SyntaxError: Identifier 'EK' has already been declared (line 1, file "00_Core")`
+
+there is still another `.gs` file in the Apps Script project declaring `EK`.
+
 ## Files to create/replace in Apps Script
 
 Apps Script has no folders. Create Script files using these names (Apps Script adds `.gs`):
@@ -41,12 +55,16 @@ Replace the manifest with `apps-script/appsscript.json` and verify:
 
 ## Migration from the old monolithic backend
 
-1. Add all modular `.gs` files above first.
-2. Add/update `Bridge.html`.
-3. Replace `appsscript.json`.
-4. Only after every modular file is present, remove the old `Code.gs` content/file so duplicate top-level functions do not exist.
-5. `Index.html`, `Scripts.html`, `Styles.html` and `Logo.html` are no longer required by the backend because `doGet()` redirects normal visits to GitHub Pages. They may be kept temporarily during the first test; remove them later if desired.
-6. Save the project.
+1. Back up the existing Apps Script source outside the project.
+2. Remove or empty the old `Code.gs` and any other legacy `.gs` backend files before adding `00_Core`.
+3. Keep Script Properties unchanged.
+4. Create all modular `.gs` files listed above from `apps-script/`.
+5. Add/update `Bridge.html`.
+6. Replace `appsscript.json`.
+7. `Index.html`, `Scripts.html`, `Styles.html` and `Logo.html` are no longer required by the backend because `doGet()` redirects normal visits to GitHub Pages. They may be kept temporarily; HTML files do not cause the `const EK` duplicate error.
+8. Save the project.
+
+At the end, the Apps Script project should contain no legacy backend `.gs` file alongside the modular files.
 
 ## Pre-deploy checks in Apps Script editor
 
