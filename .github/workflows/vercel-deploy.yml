@@ -33,30 +33,68 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Vercel token
+      - name: Resolve Vercel account, team and project
         shell: bash
         run: |
           set -euo pipefail
           test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
 
+          USER_STATUS=$(curl -sS -o /tmp/vercel-user.json -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            https://api.vercel.com/v2/user)
+          echo "Vercel user API: HTTP $USER_STATUS"
+          if [ "$USER_STATUS" != "200" ]; then
+            jq -c '{error: .error}' /tmp/vercel-user.json || true
+            exit 1
+          fi
+
+          TEAMS_STATUS=$(curl -sS -o /tmp/vercel-teams.json -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            https://api.vercel.com/v2/teams)
+          echo "Vercel teams API: HTTP $TEAMS_STATUS"
+          test "$TEAMS_STATUS" = "200" || { jq -c '{error: .error}' /tmp/vercel-teams.json || true; exit 1; }
+
+          TEAM_ID=$(jq -r --arg slug "$VERCEL_SCOPE" '.teams[]? | select(.slug == $slug) | .id' /tmp/vercel-teams.json | head -n1)
+          if [ -z "$TEAM_ID" ]; then
+            echo "Target team '$VERCEL_SCOPE' not found. Available team slugs:"
+            jq -r '.teams[]? | "- " + .slug' /tmp/vercel-teams.json
+            exit 1
+          fi
+          echo "Resolved Vercel team: $VERCEL_SCOPE"
+
+          PROJECT_STATUS=$(curl -sS -o /tmp/vercel-projects.json -w '%{http_code}' \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects?teamId=$TEAM_ID&limit=100")
+          echo "Vercel projects API: HTTP $PROJECT_STATUS"
+          test "$PROJECT_STATUS" = "200" || { jq -c '{error: .error}' /tmp/vercel-projects.json || true; exit 1; }
+
+          PROJECT_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .id' /tmp/vercel-projects.json | head -n1)
+          if [ -z "$PROJECT_ID" ]; then
+            echo "Target project '$VERCEL_PROJECT' not found in team '$VERCEL_SCOPE'."
+            echo "Available projects:"
+            jq -r '.projects[]? | "- " + .name' /tmp/vercel-projects.json
+            exit 1
+          fi
+          echo "Resolved Vercel project: $VERCEL_PROJECT"
+          echo "VERCEL_ORG_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "VERCEL_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
+
       - name: Install Vercel CLI
         run: npm install --global vercel
 
-      - name: Link Vercel project
+      - name: Link resolved Vercel project
         shell: bash
         run: |
-          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           rm -rf modern/.vercel
-          vercel link --yes \
-            --project "$VERCEL_PROJECT" \
-            --scope "$VERCEL_SCOPE" \
-            --token "$VERCEL_TOKEN" \
-            --cwd modern
+          mkdir -p modern/.vercel
+          jq -n \
+            --arg orgId "$VERCEL_ORG_ID" \
+            --arg projectId "$VERCEL_PROJECT_ID" \
+            '{orgId:$orgId, projectId:$projectId}' > modern/.vercel/project.json
 
       - name: Pull Vercel project settings
         shell: bash
         run: |
-          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd modern
           else
@@ -66,7 +104,6 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel build --prod --token="$VERCEL_TOKEN" --cwd modern
           else
@@ -77,7 +114,6 @@ jobs:
         id: deploy
         shell: bash
         run: |
-          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --cwd modern)
           else
