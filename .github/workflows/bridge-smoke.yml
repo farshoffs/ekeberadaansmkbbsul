@@ -1,0 +1,51 @@
+name: Smoke test Apps Script bridge
+
+on:
+  push:
+    branches: ["migration/github-pages-appsscript"]
+    paths:
+      - '.github/workflows/bridge-smoke.yml'
+      - 'web/config.js'
+      - 'web/gas-shim.js'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve backend URL
+        id: backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL=$(python3 - <<'PY'
+          import re
+          s=open('web/config.js',encoding='utf-8').read()
+          m=re.search(r"APPS_SCRIPT_WEB_APP_URL:\s*'([^']+)'",s)
+          if not m: raise SystemExit('Backend URL missing')
+          print(m.group(1))
+          PY
+          )
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Fetch bridge endpoint
+        shell: bash
+        env:
+          BACKEND: ${{ steps.backend.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 30 \
+            -o /tmp/bridge.html \
+            -w 'HTTP %{http_code}\nFINAL %{url_effective}\n' \
+            "${BACKEND}?bridge=1"
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('/tmp/bridge.html').read_text(encoding='utf-8',errors='replace')
+          print('BODY_BYTES',len(text.encode('utf-8')))
+          if 'EK_BRIDGE_READY' not in text or 'eKeberadaan Backend Bridge' not in text:
+              print(text[:1000])
+              raise SystemExit('Bridge markers not found; deployment may be stale or require authentication.')
+          print('BRIDGE_OK')
+          PY
