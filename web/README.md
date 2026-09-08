@@ -1,5 +1,9 @@
-# Pages migration files
+# GitHub Pages runtime source
 
-Generated static site is built by `.github/workflows/github-pages.yml`; do not copy secrets into this directory.
+This directory contains the static-runtime pieces used by the production GitHub Pages build.
 
-Repository visibility is now public so GitHub Pages can be enabled and served from the generated `gh-pages` branch.
+- `config.js` contains the public Apps Script Web App `/exec` URL.
+- `gas-shim.js` provides the browser-side Apps Script RPC compatibility layer.
+- `scripts/build-pages.py` combines these with the editable root UI sources and emits the optimized `_site` build.
+
+Never place PIN pepper, session secrets, OAuth tokens, private keys or other server credentials in this directory. GitHub Pages is public static content.
