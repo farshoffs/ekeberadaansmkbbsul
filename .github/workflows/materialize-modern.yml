@@ -5,6 +5,11 @@ on:
     branches: ["migration/nextjs-pwa"]
     paths:
       - '_modern_sync/READY'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - '_modern_sync/**'
+      - '.github/workflows/materialize-modern.yml'
 
 permissions:
   contents: write
@@ -16,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: migration/nextjs-pwa
           fetch-depth: 0
 
       - name: Reconstruct modern source bundle
@@ -49,4 +55,4 @@ jobs:
             exit 0
           fi
           git commit -m 'feat: materialize complete Next.js web build'
-          git push
+          git push origin HEAD:migration/nextjs-pwa
