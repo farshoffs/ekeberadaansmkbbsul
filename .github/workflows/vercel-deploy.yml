@@ -24,7 +24,6 @@ jobs:
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
-      VERCEL_SCOPE: farhan-shoffis-projects
       VERCEL_PROJECT: ekeberadaan-smkbbsul
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +32,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Resolve Vercel account, team and project
+      - name: Resolve Vercel project from token scope
         shell: bash
         run: |
           set -euo pipefail
@@ -41,51 +40,33 @@ jobs:
 
           TOKEN_LEN=${#VERCEL_TOKEN}
           TOKEN_PREFIX=${VERCEL_TOKEN:0:4}
-          if [[ "$VERCEL_TOKEN" =~ [[:space:]] ]]; then
-            TOKEN_WS=yes
-          else
-            TOKEN_WS=no
-          fi
+          if [[ "$VERCEL_TOKEN" =~ [[:space:]] ]]; then TOKEN_WS=yes; else TOKEN_WS=no; fi
           echo "Vercel token diagnostic: prefix=$TOKEN_PREFIX length=$TOKEN_LEN whitespace=$TOKEN_WS"
 
-          USER_STATUS=$(curl -sS -o /tmp/vercel-user.json -w '%{http_code}' \
+          PROJECTS_STATUS=$(curl -sS -o /tmp/vercel-projects.json -w '%{http_code}' \
             -H "Authorization: Bearer $VERCEL_TOKEN" \
-            https://api.vercel.com/v2/user)
-          echo "Vercel user API: HTTP $USER_STATUS"
-          if [ "$USER_STATUS" != "200" ]; then
-            jq -c '{error: .error}' /tmp/vercel-user.json || true
+            https://api.vercel.com/v9/projects)
+          echo "Vercel projects API: HTTP $PROJECTS_STATUS"
+          if [ "$PROJECTS_STATUS" != "200" ]; then
+            jq -c '{error: .error}' /tmp/vercel-projects.json || true
             exit 1
           fi
-
-          TEAMS_STATUS=$(curl -sS -o /tmp/vercel-teams.json -w '%{http_code}' \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            https://api.vercel.com/v2/teams)
-          echo "Vercel teams API: HTTP $TEAMS_STATUS"
-          test "$TEAMS_STATUS" = "200" || { jq -c '{error: .error}' /tmp/vercel-teams.json || true; exit 1; }
-
-          TEAM_ID=$(jq -r --arg slug "$VERCEL_SCOPE" '.teams[]? | select(.slug == $slug) | .id' /tmp/vercel-teams.json | head -n1)
-          if [ -z "$TEAM_ID" ]; then
-            echo "Target team '$VERCEL_SCOPE' not found. Available team slugs:"
-            jq -r '.teams[]? | "- " + .slug' /tmp/vercel-teams.json
-            exit 1
-          fi
-          echo "Resolved Vercel team: $VERCEL_SCOPE"
-
-          PROJECT_STATUS=$(curl -sS -o /tmp/vercel-projects.json -w '%{http_code}' \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v9/projects?teamId=$TEAM_ID&limit=100")
-          echo "Vercel projects API: HTTP $PROJECT_STATUS"
-          test "$PROJECT_STATUS" = "200" || { jq -c '{error: .error}' /tmp/vercel-projects.json || true; exit 1; }
 
           PROJECT_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .id' /tmp/vercel-projects.json | head -n1)
-          if [ -z "$PROJECT_ID" ]; then
-            echo "Target project '$VERCEL_PROJECT' not found in team '$VERCEL_SCOPE'."
-            echo "Available projects:"
+          ORG_ID=$(jq -r --arg name "$VERCEL_PROJECT" '.projects[]? | select(.name == $name) | .accountId' /tmp/vercel-projects.json | head -n1)
+
+          if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
+            echo "Target project '$VERCEL_PROJECT' not returned by token scope. Available projects:"
             jq -r '.projects[]? | "- " + .name' /tmp/vercel-projects.json
             exit 1
           fi
+          if [ -z "$ORG_ID" ] || [ "$ORG_ID" = "null" ]; then
+            echo "Vercel project response did not include accountId."
+            exit 1
+          fi
+
           echo "Resolved Vercel project: $VERCEL_PROJECT"
-          echo "VERCEL_ORG_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          echo "VERCEL_ORG_ID=$ORG_ID" >> "$GITHUB_ENV"
           echo "VERCEL_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
 
       - name: Install Vercel CLI
