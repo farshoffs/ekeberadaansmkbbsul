@@ -23,9 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'preview' }}
+      VERCEL_SCOPE: farhan-shoffis-projects
+      VERCEL_PROJECT: ekeberadaan-smkbbsul
     steps:
       - uses: actions/checkout@v4
 
@@ -33,20 +33,30 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Vercel deployment secrets
+      - name: Verify Vercel token
         shell: bash
         run: |
           set -euo pipefail
           test -n "$VERCEL_TOKEN" || { echo 'Missing VERCEL_TOKEN'; exit 1; }
-          test -n "$VERCEL_ORG_ID" || { echo 'Missing VERCEL_ORG_ID'; exit 1; }
-          test -n "$VERCEL_PROJECT_ID" || { echo 'Missing VERCEL_PROJECT_ID'; exit 1; }
 
       - name: Install Vercel CLI
         run: npm install --global vercel
 
+      - name: Link Vercel project
+        shell: bash
+        run: |
+          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
+          rm -rf modern/.vercel
+          vercel link --yes \
+            --project "$VERCEL_PROJECT" \
+            --scope "$VERCEL_SCOPE" \
+            --token "$VERCEL_TOKEN" \
+            --cwd modern
+
       - name: Pull Vercel project settings
         shell: bash
         run: |
+          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd modern
           else
@@ -56,6 +66,7 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             vercel build --prod --token="$VERCEL_TOKEN" --cwd modern
           else
@@ -66,6 +77,7 @@ jobs:
         id: deploy
         shell: bash
         run: |
+          unset VERCEL_ORG_ID VERCEL_PROJECT_ID
           if [ "$DEPLOY_TARGET" = "production" ]; then
             URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" --cwd modern)
           else
