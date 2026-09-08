@@ -1,0 +1,84 @@
+name: Live web smoke test
+
+on:
+  push:
+    branches: ["refactor/performance-v2"]
+    paths:
+      - '.github/workflows/live-smoke.yml'
+      - 'web/config.js'
+      - 'web/gas-shim.js'
+      - 'scripts/build-pages.py'
+      - 'apps-script/Bridge.html'
+      - 'apps-script/Bridges.gs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve backend URL
+        id: backend
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import re
+          s=open('web/config.js',encoding='utf-8').read()
+          m=re.search(r"APPS_SCRIPT_WEB_APP_URL:\s*'([^']+)'",s)
+          if not m: raise SystemExit('Backend URL missing')
+          print('url='+m.group(1))
+          PY
+
+      - name: Verify optimized GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          PAGE='https://farshoffs.github.io/ekeberadaansmkbbsul/'
+          for n in 1 2 3 4 5; do
+            code=$(curl -L --silent --show-error --max-time 30 -o /tmp/page.html -w '%{http_code}' "$PAGE" || true)
+            [ "$code" = 200 ] && break
+            sleep 4
+          done
+          test "$code" = 200
+          grep -q 'e-Keberadaan — Perakam Waktu Digital' /tmp/page.html
+          grep -q 'assets/app\.' /tmp/page.html
+          grep -q 'assets/core\.' /tmp/page.html
+          ! grep -q 'data:image' /tmp/page.html
+          bytes=$(wc -c < /tmp/page.html)
+          echo "LIVE_HTML_BYTES=$bytes"
+          test "$bytes" -lt 100000
+          curl -LfsS --max-time 30 "${PAGE}sw.js" -o /tmp/sw.js
+          curl -LfsS --max-time 30 "${PAGE}manifest.webmanifest" -o /tmp/manifest.json
+          grep -q 'eke-static-' /tmp/sw.js
+          grep -q 'e-Keberadaan' /tmp/manifest.json
+          curl -Lso /dev/null --max-time 30 -w 'PAGES_TTFB=%{time_starttransfer}s TOTAL=%{time_total}s SIZE=%{size_download}\n' "$PAGE"
+
+      - name: Verify Apps Script bridge GET
+        shell: bash
+        env:
+          BACKEND: ${{ steps.backend.outputs.url }}
+        run: |
+          set -euo pipefail
+          curl -LfsS --max-time 30 "${BACKEND}?bridge=1" -o /tmp/bridge-get.html
+          grep -q 'EK_BRIDGE_READY' /tmp/bridge-get.html
+          grep -q 'eKeberadaan Backend Bridge' /tmp/bridge-get.html
+          echo "BRIDGE_GET_BYTES=$(wc -c < /tmp/bridge-get.html)"
+
+      - name: Verify Apps Script bridge RPC ping
+        shell: bash
+        env:
+          BACKEND: ${{ steps.backend.outputs.url }}
+        run: |
+          set -euo pipefail
+          payload='{"id":"ci-ping","channel":"ci","method":"__ping__","args":[],"origin":"https://farshoffs.github.io"}'
+          curl -LfsS --max-time 30 \
+            --data-urlencode 'bridge=1' \
+            --data-urlencode "payload=${payload}" \
+            "$BACKEND" -o /tmp/bridge-post.html
+          grep -q 'ci-ping' /tmp/bridge-post.html
+          grep -q 'ready' /tmp/bridge-post.html
+          grep -q 'Asia/Kuala_Lumpur' /tmp/bridge-post.html
+          echo 'BRIDGE_RPC_PING_OK'
