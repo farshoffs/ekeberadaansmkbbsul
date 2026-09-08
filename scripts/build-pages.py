@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "_site"
 ASSETS = OUT / "assets"
 TITLE = "e-Keberadaan — Perakam Waktu Digital"
+BOOTSTRAP_GRID_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-grid.min.css"
 
 
 def read(name: str) -> str:
@@ -112,6 +113,7 @@ def build() -> None:
 
     html = read("Index.html").replace("\r\n", "\n")
     css_url = write_text_hashed("app", "css", clean_css())
+    mobile_css_url = write_text_hashed("mobile", "css", read("web/mobile-bootstrap.css").strip() + "\n")
     logo_url = extract_logo()
 
     js_urls: list[str] = []
@@ -121,11 +123,19 @@ def build() -> None:
     config_url = write_text_hashed("config", "js", read("web/config.js"))
     shim_url = write_text_hashed("gas-shim", "js", read("web/gas-shim.js"))
 
-    html = html.replace("<?!= include('Styles'); ?>", f'<link rel="stylesheet" href="{css_url}">')
+    style_tags = (
+        '<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>\n'
+        f'  <link rel="stylesheet" href="{BOOTSTRAP_GRID_CSS}">\n'
+        f'  <link rel="stylesheet" href="{css_url}">\n'
+        f'  <link rel="stylesheet" href="{mobile_css_url}">'
+    )
+    html = html.replace("<?!= include('Styles'); ?>", style_tags)
     html = html.replace(
         "<?!= include('Logo'); ?>",
         f'<img class="school-logo" alt="Logo sekolah" src="{logo_url}" decoding="async">',
     )
+    # Bootstrap container utility complements the existing content max-width.
+    html = html.replace('<main class="content">', '<main class="content container-fluid">', 1)
 
     scripts = [config_url, shim_url, *js_urls]
     script_tags = "\n  ".join(f'<script src="{u}" defer></script>' for u in scripts)
@@ -136,6 +146,15 @@ def build() -> None:
     html, count = inline_scripts.subn("\n  " + script_tags, html, count=1)
     if count != 1:
         raise SystemExit("Blok Scripts.html dalam Index.html tidak ditemui")
+
+    # The static GitHub Pages build must provide its own viewport meta. The old
+    # Apps Script deployment previously added this server-side via HtmlService.
+    if not re.search(r'<meta\s+name=["\']viewport["\']', html, flags=re.I):
+        html = html.replace(
+            '<base target="_top">',
+            '<base target="_top">\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+            1,
+        )
 
     if re.search(r"<title>.*?</title>", html, flags=re.I | re.S):
         html = re.sub(r"<title>.*?</title>", f"<title>{TITLE}</title>", html, count=1, flags=re.I | re.S)
@@ -152,13 +171,13 @@ def build() -> None:
     )
     html = html.replace("</head>", perf_head + "</head>", 1)
 
-    bootstrap = """(() => {
+    sw_bootstrap = """(() => {
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}), {once:true});
   }
 })();
 """
-    bootstrap_url = write_text_hashed("bootstrap", "js", bootstrap)
+    bootstrap_url = write_text_hashed("bootstrap", "js", sw_bootstrap)
     html = html.replace("</body>", f'  <script src="{bootstrap_url}" defer></script>\n</body>', 1)
 
     (OUT / "index.html").write_text(html, encoding="utf-8")
@@ -177,7 +196,7 @@ def build() -> None:
     }
     (OUT / "manifest.webmanifest").write_text(json.dumps(manifest, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
-    static_assets = ["./", "./index.html", "./manifest.webmanifest", logo_url, css_url, config_url, shim_url, bootstrap_url, *js_urls]
+    static_assets = ["./", "./index.html", "./manifest.webmanifest", logo_url, css_url, mobile_css_url, config_url, shim_url, bootstrap_url, *js_urls]
     sw = f"""const CACHE='eke-static-{digest('|'.join(static_assets))}';
 const ASSETS={json.dumps(static_assets, separators=(',', ':'))};
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
@@ -203,6 +222,8 @@ self.addEventListener('fetch',e=>{{
         raise SystemExit("Title hilang daripada static output")
     if "assets/exports." not in built:
         raise SystemExit("Global exports bundle tiada daripada static output")
+    if 'name="viewport"' not in built or "bootstrap-grid.min.css" not in built or "assets/mobile." not in built:
+        raise SystemExit("Responsive Bootstrap/viewport layer hilang daripada static output")
 
     print(f"index.html: {size} bytes")
     for p in sorted(ASSETS.iterdir()):
