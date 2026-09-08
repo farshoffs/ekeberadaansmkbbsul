@@ -37,6 +37,26 @@ jobs:
           cat apps-script/*.gs > /tmp/apps-script-backend.js
           node --check /tmp/apps-script-backend.js
 
+      - name: Browser runtime smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          "$CHROME" --version
+          python3 -m http.server 4173 --directory _site >/tmp/eke-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for n in 1 2 3 4 5; do
+            curl -fsS http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=4000 --dump-dom \
+            'http://127.0.0.1:4173/' > /tmp/runtime-dom.html
+          grep -q 'data-ek-runtime="ready"' /tmp/runtime-dom.html
+          grep -q 'id="loginPage"' /tmp/runtime-dom.html
+          echo "BROWSER_RUNTIME_OK DOM_BYTES=$(wc -c < /tmp/runtime-dom.html)"
+
       - name: Performance budget
         shell: bash
         run: |
