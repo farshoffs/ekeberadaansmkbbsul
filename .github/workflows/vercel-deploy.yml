@@ -28,8 +28,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: modern/package-lock.json
 
       - name: Verify Vercel deployment secrets
         shell: bash
@@ -73,4 +71,9 @@ jobs:
           echo "Deployment URL: $URL"
 
       - name: Summary
-        run: echo "### Vercel ${{ inputs.target }} deployment\n${{ steps.deploy.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+        run: |
+          {
+            echo "### Vercel ${{ inputs.target }} deployment"
+            echo "${{ steps.deploy.outputs.url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
