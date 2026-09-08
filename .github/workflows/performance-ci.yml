@@ -1,0 +1,58 @@
+name: Performance refactor CI
+
+on:
+  push:
+    branches: ["refactor/performance-v2"]
+    paths:
+      - 'Index.html'
+      - 'Logo.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'Bridges.gs'
+      - 'Code.gs'
+      - '*.gs'
+      - 'web/**'
+      - 'scripts/**'
+      - '.github/workflows/performance-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build modular static site
+        run: python3 scripts/build-pages.py
+      - name: Validate generated JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in _site/assets/*.js; do node --check "$f"; done
+      - name: Performance budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          html=$(wc -c < _site/index.html)
+          js=$(cat _site/assets/*.js | wc -c)
+          css=$(cat _site/assets/*.css | wc -c)
+          total=$(du -sb _site | awk '{print $1}')
+          echo "HTML=$html bytes"
+          echo "JS=$js bytes"
+          echo "CSS=$css bytes"
+          echo "TOTAL=$total bytes"
+          test "$html" -lt 100000
+          test "$js" -lt 180000
+          test "$css" -lt 100000
+      - name: Verify Apps Script bridge contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'function doPost(e)' Bridges.gs
+          grep -q 'renderPagesBridge_' Bridges.gs
+          grep -q 'Asia/Kuala_Lumpur' appsscript.json
