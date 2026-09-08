@@ -54,6 +54,26 @@ def clean_css() -> str:
 
 def split_javascript() -> dict[str, str]:
     src = read("Scripts.html").replace("\r\n", "\n")
+
+    # The legacy file exports every inline-handler function at the very end.
+    # That export must execute AFTER all feature bundles, otherwise core.js can
+    # reference admin/absence functions before those scripts have been parsed.
+    export_tail = ""
+    export_match = re.search(
+        r"(?ms)^\s*// Explicit global exports for Apps Script HtmlService / inline HTML handlers\..*\Z",
+        src,
+    )
+    if export_match:
+        export_tail = src[export_match.start():].strip() + "\n"
+        export_tail = export_tail.replace(
+            "window.__EK_SCRIPTS_LOADED__ = true;",
+            "window.__EK_SCRIPTS_LOADED__ = true;\n  document.documentElement.dataset.ekRuntime = 'ready';",
+            1,
+        )
+        src = src[:export_match.start()].rstrip() + "\n"
+    else:
+        raise SystemExit("Blok global exports Scripts.html tidak ditemui")
+
     marker = re.compile(r"(?m)^\s*// ---------- (.*?) ----------\s*$")
     matches = list(marker.finditer(src))
     sections: list[tuple[str, str]] = []
@@ -78,9 +98,11 @@ def split_javascript() -> dict[str, str]:
             bucket = "core"
         groups[bucket].append(body.rstrip() + "\n")
 
-    # Classic scripts deliberately share the same global scope. Keep identifiers
-    # unchanged so inline onclick handlers and cross-bundle calls remain compatible.
-    return {k: "\n".join(v).strip() + "\n" for k, v in groups.items() if v}
+    # Classic scripts share the same global scope. Preserve stable feature
+    # order, then run the exports bundle last once every function exists.
+    out = {k: "\n".join(v).strip() + "\n" for k, v in groups.items() if v}
+    out["exports"] = export_tail
+    return out
 
 
 def build() -> None:
@@ -171,8 +193,6 @@ self.addEventListener('fetch',e=>{{
 """
     (OUT / "sw.js").write_text(sw, encoding="utf-8")
 
-    # Build-time safeguards: the page shell must stay small and must not carry
-    # the former repeated base64 logo / 78 KB inline application script.
     size = (OUT / "index.html").stat().st_size
     if size > 100_000:
         raise SystemExit(f"index.html masih terlalu besar: {size} bytes")
@@ -181,6 +201,8 @@ self.addEventListener('fetch',e=>{{
         raise SystemExit("Static output masih mengandungi template/data URI lama")
     if f"<title>{TITLE}</title>" not in built:
         raise SystemExit("Title hilang daripada static output")
+    if "assets/exports." not in built:
+        raise SystemExit("Global exports bundle tiada daripada static output")
 
     print(f"index.html: {size} bytes")
     for p in sorted(ASSETS.iterdir()):
