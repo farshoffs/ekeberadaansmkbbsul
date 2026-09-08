@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation';
-import { currentSession } from '@/lib/security';
 import LoginClient from '@/components/LoginClient';
-export default async function Login(){if(await currentSession())redirect('/app');return <LoginClient/>}
+export const dynamic='force-dynamic';
+export default function LoginPage(){return<LoginClient/>}

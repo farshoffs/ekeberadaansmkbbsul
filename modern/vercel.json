@@ -1,0 +1,7 @@
+{
+  "crons": [
+    {"path":"/api/cron/punch-reminder","schedule":"0 1 * * 0-4"},
+    {"path":"/api/cron/daily-report","schedule":"0 23 * * 0-4"},
+    {"path":"/api/cron/presence-expiry","schedule":"*/15 * * * *"}
+  ]
+}

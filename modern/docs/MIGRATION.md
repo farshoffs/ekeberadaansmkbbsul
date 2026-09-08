@@ -1,41 +1,37 @@
-# eKeberadaan — Apps Script → Next.js PWA
+# Migration parity
 
-## Architecture
+Implemented in the modern web build:
 
-- **Frontend:** Next.js 16 / React 19, responsive PWA for desktop + mobile.
-- **Backend:** Next.js Route Handlers (`/api/*`), all privileged operations run server-side.
-- **Database:** existing Google Spreadsheet via Google Sheets API. Sheet names and column order remain compatible with the Apps Script deployment.
-- **Authentication:** DELIMa email + existing 6-digit PIN hash compatibility. Sessions move to secure first-party HttpOnly cookies with 30-day trusted devices.
-- **Timezone:** all attendance business logic uses `Asia/Kuala_Lumpur`.
+- DELIMa registered-email + 6-digit PIN login
+- Legacy Apps Script salted HMAC PIN compatibility
+- First-time / reset PIN setup
+- 30-day trusted-device session, maximum two active devices
+- Login lockout and login log
+- GPS radius and accuracy validation
+- Malaysia timezone (`Asia/Kuala_Lumpur`)
+- Alternating IN/OUT flow, optional Session 2
+- Lewat / Balik Awal flags and review records
+- IP tracking with OFF / WARN / BLOCK policies
+- Digital monthly punch card
+- Tidak Hadir / Keberadaan request, cancellation, management approval
+- Approved Tidak Hadir writes into KEHADIRAN
+- Approved Keberadaan can acknowledge matching late-review records
+- Public absence/presence list plus unexplained no-punch entries
+- Admin daily attendance view and manual correction
+- User/admin/category/job/schedule management
+- PIN reset, account unlock, trusted-device management
+- System settings management
+- Attendance duplicate repair
+- Period/daily reports, Google Sheet output and PDF output
+- Existing Google Drive profile-photo IDs
+- Optional email reminders/reports and cron endpoints
+- Responsive desktop/mobile PWA shell
 
-## Milestone 1 implemented
-
-- Existing `PENGGUNA` login + 6-digit PIN verification.
-- First-time PIN setup.
-- 30-day session using HttpOnly cookie.
-- Maximum two trusted devices using existing `SESI_PERANTI` sheet.
-- GPS punch in/out with 1 or 2 sessions per day.
-- Late / early detection and `SEMAKAN_WAKTU` creation.
-- Monthly punch card data.
-- Tidak Hadir / Keberadaan submission + own-record list.
-- Installable PWA shell and mobile-first interface.
-
-## Environment setup
-
-1. Create a Google Cloud service account and enable **Google Sheets API**.
-2. Share the eKeberadaan Google Sheet with the service-account email as **Editor**.
-3. Set the variables in `.env.local` based on `.env.example`.
-4. Copy the current Apps Script Script Property `EK_PASSWORD_PEPPER` to `EK_PASSWORD_PEPPER`. This allows existing PIN hashes in `PENGGUNA` to continue working without resetting all users.
-5. Use a strong new `EK_WEB_SESSION_SECRET` (32+ random bytes).
-6. Deploy to Vercel or another Node.js hosting platform.
-
-## Next migration milestones
-
-- Full Pentadbir Sistem: users, schedules, PIN reset, trusted-device management, settings.
-- Daily and period reporting + PDF generation.
-- Semakan Tidak Hadir / Keberadaan approval workflow.
-- Semakan Lewat / Balik Awal approval workflow.
-- IP duplicate warning/block parity.
-- Profile photo sync/read via Google Drive API.
-- Scheduled email notifications moved from Apps Script triggers to Vercel Cron / scheduled worker.
-- Final parity test, then retire Apps Script web UI while keeping the same Google Sheet database.
+## Cut-over
+1. Keep the Apps Script deployment live while testing the migration branch.
+2. Create a Google Cloud service account and enable Google Sheets API (and Drive API for profile photos).
+3. Share the existing spreadsheet with the service account as Editor.
+4. Copy the existing Apps Script `EK_PASSWORD_PEPPER` value to the web deployment secret.
+5. Set all required environment variables.
+6. Run CI/build, deploy a staging URL, and test with real accounts in `SYSTEM_MODE=TEST` first.
+7. Switch to `REAL`, validate school GPS coordinates/radius, then cut over the public URL.
