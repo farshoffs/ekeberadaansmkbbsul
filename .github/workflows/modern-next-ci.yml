@@ -15,6 +15,11 @@ jobs:
         working-directory: modern
     steps:
       - uses: actions/checkout@v4
+
+      - name: Package modern source
+        working-directory: .
+        run: git archive --format=tar.gz --output=/tmp/modern-source.tar.gz HEAD modern
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -28,3 +33,10 @@ jobs:
           EK_PASSWORD_PEPPER: build-placeholder
           EK_WEB_SESSION_SECRET: build-placeholder-build-placeholder-build-placeholder
           EK_TRUSTED_DEVICE_SECRET: build-placeholder-build-placeholder-build-placeholder
+
+      - name: Upload modern source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modern-source
+          path: /tmp/modern-source.tar.gz
+          retention-days: 1
