@@ -1,0 +1,96 @@
+/* Mobile-first responsive layer for GitHub Pages.
+ * Bootstrap Grid is loaded before this file; these rules preserve the existing
+ * eKeberadaan visual identity while fixing narrow-screen overflow/layout.
+ */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+img,svg,video,canvas{max-width:100%;height:auto}
+.content.container-fluid{width:100%;min-width:0}
+.panel,.welcome-card,.quick-card,.main-area,.screen{min-width:0}
+input,select,textarea,button{max-width:100%}
+.table-wrap,.pc-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+.table-wrap table,.pc-table-wrap table{margin-bottom:0}
+
+@media (max-width:991.98px){
+  .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
+  .page-heading,.panel-head{gap:12px}
+  .report-builder-actions,.toolbar-actions{flex-wrap:wrap}
+}
+
+@media (max-width:767.98px){
+  .shell,.main-area{width:100%;max-width:100%}
+  .main-area{overflow-x:hidden}
+  .sidebar{height:100dvh;max-width:min(86vw,300px);left:-100%;overflow-y:auto;overscroll-behavior:contain}
+  .sidebar.open{left:0}
+  .sidebar-backdrop{position:fixed;inset:0}
+
+  .topbar{height:auto;min-height:64px;padding:9px 12px;gap:9px}
+  .topbar>div:first-of-type{min-width:0}
+  .topbar>div:first-of-type b{white-space:normal;line-height:1.2}
+  .top-actions{flex:0 0 auto;gap:6px}
+
+  .content.container-fluid{padding:12px!important}
+  .page-heading,.panel-head,.punchcard-page-heading,.report-builder-head{display:flex;flex-direction:column;align-items:stretch!important}
+  .page-heading>*,.panel-head>*,.report-builder-head>*{min-width:0;max-width:100%}
+  .page-heading h1{font-size:clamp(22px,6vw,26px);line-height:1.15}
+
+  .welcome-card{flex-direction:column;align-items:stretch!important;gap:14px}
+  .welcome-right{width:100%;display:flex;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px}
+  .welcome-profile.large{width:76px;height:76px;font-size:24px}
+  .badge{white-space:normal;text-align:center;justify-content:center}
+
+  .location-box{flex-direction:column;align-items:flex-start;gap:10px}
+  .location-box>div{min-width:0;width:100%}
+  .button-row{grid-template-columns:1fr!important}
+  .btn,.delima-check-btn{min-height:44px}
+
+  .punchcard-actions,.toolbar-actions,.report-builder-actions{width:100%}
+  .punchcard-actions .btn,.toolbar-actions .btn,.report-builder-actions .btn{flex:1 1 auto}
+  .month-picker{width:100%}
+  .month-picker input{width:100%}
+
+  .form-grid,.modal-grid{grid-template-columns:1fr!important}
+  .span-2{grid-column:auto!important}
+  .modal{padding:8px}
+  .modal-card{width:100%;max-width:100%;max-height:calc(100dvh - 16px);border-radius:14px;padding:18px 14px}
+
+  .login-page{min-height:100dvh;padding:12px}
+  .login-card{width:100%;max-width:470px;padding:22px 16px 20px}
+  .login-logo{width:92px;height:92px}
+
+  .physical-card{width:100%!important;max-width:100%}
+  .pc-topline{padding-left:14px;padding-right:14px}
+  .pc-info-row{grid-template-columns:82px minmax(0,1fr);padding-left:12px;padding-right:12px}
+  .pc-title-row{gap:8px;padding-left:12px;padding-right:12px}
+  .pc-title-row>div{min-width:0}
+  .pc-title-row>div strong{margin-left:0!important;text-align:left}
+}
+
+@media (max-width:575.98px){
+  .content.container-fluid{padding:10px!important}
+  .panel,.welcome-card{padding:14px!important;border-radius:14px;margin-bottom:12px}
+  .quick-card{padding:15px}
+  .quick-grid,.home-links{gap:10px}
+
+  .home-schedule-grid,.home-punch-times,.punch-times,.schedule-grid-five{grid-template-columns:1fr!important}
+  .time-card strong{font-size:clamp(22px,8vw,27px)}
+  .summary-grid{grid-template-columns:1fr 1fr!important;gap:8px}
+  .summary-card{padding:10px}
+
+  .top-actions .btn.small{display:none}
+  .role-chip{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .pc-table{min-width:510px}
+  .pc-table-wrap{margin-left:-2px;margin-right:-2px}
+  .pc-warning{padding-left:12px;padding-right:12px}
+  .pc-legend{gap:8px}
+
+  .toast{left:10px;right:10px;bottom:max(12px,env(safe-area-inset-bottom));transform:none;max-width:none;border-radius:14px}
+}
+
+@media (max-width:389.98px){
+  .summary-grid{grid-template-columns:1fr!important}
+  .welcome-right{align-items:flex-start;flex-direction:column!important}
+  .welcome-profile.large{width:66px;height:66px}
+  .login-card h1{font-size:22px}
+}
