@@ -6,9 +6,29 @@
  * Therefore requests arrive as cross-origin POST form submissions and the
  * HtmlService response posts the result back to the top-level GitHub Pages page.
  */
+function getPagesWebOrigins_() {
+  var props = PropertiesService.getScriptProperties();
+  var multi = String(props.getProperty('EK_PAGES_ORIGINS') || '').trim();
+  var legacy = String(props.getProperty('EK_PAGES_ORIGIN') || '').trim();
+  var raw = multi || legacy || 'https://farshoffs.github.io,https://kea3123-bit.github.io';
+  var seen = {};
+  return raw.split(/[\s,;]+/).map(function(value) {
+    return String(value || '').trim().replace(/\/$/, '');
+  }).filter(function(value) {
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(value)) return false;
+    if (seen[value]) return false;
+    seen[value] = true;
+    return true;
+  });
+}
+
 function getPagesWebOrigin_() {
-  var value = String(PropertiesService.getScriptProperties().getProperty('EK_PAGES_ORIGIN') || '').trim();
-  return value || 'https://farshoffs.github.io';
+  return getPagesWebOrigins_()[0] || 'https://farshoffs.github.io';
+}
+
+function isPagesWebOriginAllowed_(origin) {
+  var normalized = String(origin || '').trim().replace(/\/$/, '');
+  return getPagesWebOrigins_().indexOf(normalized) !== -1;
 }
 
 function pagesBridgeSafeJson_(value) {
@@ -18,9 +38,11 @@ function pagesBridgeSafeJson_(value) {
     .replace(/\u2029/g, '\\u2029');
 }
 
-function renderPagesBridge_(responsePayload) {
+function renderPagesBridge_(responsePayload, targetOrigin) {
+  var origin = String(targetOrigin || '').trim().replace(/\/$/, '');
+  if (!isPagesWebOriginAllowed_(origin)) origin = getPagesWebOrigin_();
   var tpl = HtmlService.createTemplateFromFile('Bridge');
-  tpl.allowedOrigin = getPagesWebOrigin_();
+  tpl.allowedOrigin = origin;
   tpl.responseJson = responsePayload ? pagesBridgeSafeJson_(responsePayload) : 'null';
   return tpl.evaluate()
     .setTitle('eKeberadaan Backend Bridge')
@@ -122,6 +144,7 @@ function invokePagesBridgeMethod_(method, args) {
 function doPost(e) {
   var id = '';
   var channel = '';
+  var origin = '';
   try {
     var params = (e && e.parameter) ? e.parameter : {};
     if (String(params.bridge || '') !== '1') {
@@ -137,10 +160,10 @@ function doPost(e) {
     channel = String(request.channel || '');
     var method = String(request.method || '');
     var args = Array.isArray(request.args) ? request.args : [];
-    var origin = String(request.origin || '');
+    origin = String(request.origin || '').trim().replace(/\/$/, '');
 
     if (!id || !channel) throw new Error('ID bridge tidak sah.');
-    if (origin !== getPagesWebOrigin_()) throw new Error('Origin bridge tidak dibenarkan.');
+    if (!isPagesWebOriginAllowed_(origin)) throw new Error('Origin bridge tidak dibenarkan.');
 
     var value;
     if (method === '__ping__') {
@@ -157,7 +180,7 @@ function doPost(e) {
       channel: channel,
       ok: true,
       value: value
-    });
+    }, origin);
   } catch (err) {
     return renderPagesBridge_({
       type: 'EK_BRIDGE_RESULT',
@@ -165,6 +188,6 @@ function doPost(e) {
       channel: channel,
       ok: false,
       error: (err && err.message) ? err.message : String(err || 'Ralat backend')
-    });
+    }, origin);
   }
 }
