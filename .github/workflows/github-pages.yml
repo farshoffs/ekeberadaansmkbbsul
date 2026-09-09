@@ -58,6 +58,19 @@ jobs:
           test "$html" -lt 100000
           test "$total" -lt 900000
 
+      - name: Capture expected live asset names
+        id: expected
+        shell: bash
+        run: |
+          set -euo pipefail
+          mobile=$(grep -Eo 'assets/mobile\.[A-Za-z0-9]+\.css' _site/index.html | head -1)
+          shim=$(grep -Eo 'assets/gas-shim\.[A-Za-z0-9]+\.js' _site/index.html | head -1)
+          test -n "$mobile"
+          test -n "$shim"
+          echo "mobile=$mobile" >> "$GITHUB_OUTPUT"
+          echo "shim=$shim" >> "$GITHUB_OUTPUT"
+          echo "Expected mobile=$mobile shim=$shim"
+
       - name: Publish gh-pages branch
         shell: bash
         run: |
@@ -72,3 +85,34 @@ jobs:
           git add -A
           git commit -m "deploy: optimized static web ${GITHUB_SHA}"
           git push --force origin HEAD:gh-pages
+
+      - name: Verify exact build reached live GitHub Pages
+        shell: bash
+        env:
+          EXPECTED_MOBILE: ${{ steps.expected.outputs.mobile }}
+          EXPECTED_SHIM: ${{ steps.expected.outputs.shim }}
+        run: |
+          set -euo pipefail
+          PAGE='https://farshoffs.github.io/ekeberadaansmkbbsul/'
+          ok=0
+          for n in $(seq 1 24); do
+            code=$(curl -L --silent --show-error --max-time 20 \
+              -H 'Cache-Control: no-cache' \
+              -o /tmp/live.html -w '%{http_code}' "${PAGE}?deploy=${GITHUB_SHA}-${n}" || true)
+            if [ "$code" = 200 ] \
+              && grep -q "$EXPECTED_MOBILE" /tmp/live.html \
+              && grep -q "$EXPECTED_SHIM" /tmp/live.html; then
+              ok=1
+              break
+            fi
+            echo "Waiting for Pages deployment (${n}/24)..."
+            sleep 5
+          done
+          test "$ok" = 1
+          curl -LfsS --max-time 20 -H 'Cache-Control: no-cache' "${PAGE}${EXPECTED_MOBILE}" -o /tmp/mobile.css
+          curl -LfsS --max-time 20 -H 'Cache-Control: no-cache' "${PAGE}${EXPECTED_SHIM}" -o /tmp/gas-shim.js
+          grep -q '.modal #modalContent input:not' /tmp/mobile.css
+          grep -q '#ekGlobalLoading' /tmp/mobile.css
+          grep -q 'function beginGlobalLoading' /tmp/gas-shim.js
+          grep -q 'function startRequestButton' /tmp/gas-shim.js
+          echo "LIVE_PAGES_EXACT_BUILD_OK mobile=${EXPECTED_MOBILE} shim=${EXPECTED_SHIM}"
