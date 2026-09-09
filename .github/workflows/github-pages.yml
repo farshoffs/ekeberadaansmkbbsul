@@ -8,6 +8,7 @@ on:
       - 'Scripts.html'
       - 'Styles.html'
       - 'Logo.html'
+      - 'package.json'
       - 'web/**'
       - 'scripts/build-pages.py'
       - '.github/workflows/github-pages.yml'
@@ -27,6 +28,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pinned frontend dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Build optimized static site
         run: python3 scripts/build-pages.py
@@ -38,12 +45,18 @@ jobs:
           test -f _site/index.html
           test -f _site/sw.js
           test -f _site/manifest.webmanifest
+          test -f _site/vendor/bootstrap/bootstrap.min.css
+          test -f _site/vendor/bootstrap/bootstrap.bundle.min.js
           ! grep -q 'data:image' _site/index.html
+          ! grep -q 'cdn.jsdelivr.net' _site/index.html
+          grep -q 'vendor/bootstrap/bootstrap.min.css' _site/index.html
+          grep -q 'vendor/bootstrap/bootstrap.bundle.min.js' _site/index.html
+          grep -R -q 'spinner-border spinner-border-sm' _site/assets
           html=$(wc -c < _site/index.html)
           total=$(du -sb _site | awk '{print $1}')
           echo "HTML=$html bytes TOTAL=$total bytes"
           test "$html" -lt 100000
-          test "$total" -lt 400000
+          test "$total" -lt 900000
 
       - name: Publish gh-pages branch
         shell: bash
