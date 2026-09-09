@@ -23,6 +23,37 @@ input,select,textarea,button{max-width:100%}
 }
 .sidebar-backdrop{display:none!important}
 
+/* Compact sidebar navigation.
+ * These overrides intentionally make navigation feel like a menu rather than
+ * a stack of oversized call-to-action buttons. */
+.menu{
+  gap:3px!important;
+  padding:12px 0!important;
+  align-content:start;
+}
+.menu-item{
+  min-height:38px;
+  padding:8px 10px!important;
+  border-radius:8px!important;
+  gap:8px!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+  font-weight:700!important;
+}
+.menu-item span{
+  width:18px!important;
+  font-size:15px!important;
+  line-height:1;
+  opacity:.9;
+}
+.menu-item:hover{
+  background:rgba(255,255,255,.06)!important;
+}
+.menu-item.active{
+  background:rgba(16,93,187,.78)!important;
+  box-shadow:inset 3px 0 0 var(--yellow)!important;
+}
+
 @media (max-width:991.98px){
   .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
   .page-heading,.panel-head{gap:12px}
@@ -68,6 +99,7 @@ input,select,textarea,button{max-width:100%}
   }
   .sidebar.open{display:flex;left:auto!important}
   .sidebar-backdrop{display:none!important}
+  .menu-item{min-height:44px;padding:9px 10px!important}
 
   .topbar{height:auto;min-height:64px;padding:9px 12px;gap:9px}
   .topbar>div:first-of-type{min-width:0}
