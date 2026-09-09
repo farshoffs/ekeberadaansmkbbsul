@@ -2,7 +2,7 @@
   'use strict';
   const cfg=window.EK_CONFIG||{};
   const timeoutMs=Math.max(5000,Number(cfg.BRIDGE_TIMEOUT_MS)||30000);
-  let seq=0,ready=false;
+  let seq=0,ready=false,activeRequests=0,loadingTimer=null,lastActionButton=null,lastActionAt=0;
   const pending=new Map();
 
   function randomToken(bytes=16){
@@ -45,7 +45,9 @@
   let storedBackend='';
   try{ storedBackend=localStorage.getItem('EK_APPS_SCRIPT_WEB_APP_URL')||''; }catch(_e){}
   const configuredBackend=String(cfg.APPS_SCRIPT_WEB_APP_URL||'').trim();
-  const backend=[configuredBackend,queryBackend,storedBackend].find(isValidBackend)||'';
+  // An explicit ?backend= URL wins for staging/debug. The repository config is
+  // the normal production/dev default; a stored URL is only the final fallback.
+  const backend=[queryBackend,configuredBackend,storedBackend].find(isValidBackend)||'';
 
   function status(text,kind){
     let el=document.getElementById('ekBridgeStatus');
@@ -60,9 +62,89 @@
     if(kind==='ok')setTimeout(()=>el.classList.add('hidden'),1200);
   }
 
+  function ensureGlobalLoading(){
+    let el=document.getElementById('ekGlobalLoading');
+    if(el)return el;
+    el=document.createElement('div');
+    el.id='ekGlobalLoading';
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
+    el.setAttribute('aria-label','Sedang memproses permintaan');
+    el.innerHTML='<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Sedang memproses…</span>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function beginGlobalLoading(){
+    activeRequests+=1;
+    if(activeRequests!==1)return;
+    clearTimeout(loadingTimer);
+    loadingTimer=setTimeout(()=>{
+      if(activeRequests>0)ensureGlobalLoading().classList.add('show');
+    },180);
+  }
+
+  function endGlobalLoading(){
+    activeRequests=Math.max(0,activeRequests-1);
+    if(activeRequests!==0)return;
+    clearTimeout(loadingTimer);
+    loadingTimer=null;
+    const el=document.getElementById('ekGlobalLoading');
+    if(el)el.classList.remove('show');
+  }
+
+  function rememberActionButton(btn){
+    if(!btn || !(btn instanceof HTMLElement))return;
+    lastActionButton=btn;
+    lastActionAt=Date.now();
+  }
+
+  document.addEventListener('click',e=>{
+    const btn=e.target instanceof Element?e.target.closest('button'):null;
+    if(btn)rememberActionButton(btn);
+  },true);
+  document.addEventListener('submit',e=>{
+    if(e.submitter)rememberActionButton(e.submitter);
+  },true);
+
+  function takeActionButton(){
+    const btn=(Date.now()-lastActionAt<700)?lastActionButton:null;
+    lastActionButton=null;
+    lastActionAt=0;
+    if(!btn || !document.contains(btn) || btn.disabled || btn.getAttribute('aria-busy')==='true')return null;
+    return btn;
+  }
+
+  function startRequestButton(btn){
+    if(!btn)return null;
+    const state={btn,html:btn.innerHTML,disabled:btn.disabled};
+    btn.disabled=true;
+    btn.setAttribute('aria-busy','true');
+    const label=(btn.textContent||'Memproses').trim()||'Memproses';
+    btn.innerHTML='<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span><span>'+escapeHtml(label)+'</span>';
+    return state;
+  }
+
+  function finishRequestButton(state){
+    if(!state||!state.btn)return;
+    const btn=state.btn;
+    if(document.contains(btn)){
+      btn.innerHTML=state.html;
+      btn.disabled=state.disabled;
+      btn.removeAttribute('aria-busy');
+    }
+  }
+
+  function escapeHtml(value){
+    return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
   function cleanupRequest(p){
-    if(!p)return;
+    if(!p||p.cleaned)return;
+    p.cleaned=true;
     clearTimeout(p.timer);
+    finishRequestButton(p.buttonState);
+    endGlobalLoading();
     try{ if(p.form&&p.form.parentNode)p.form.remove(); }catch(_e){}
     try{ if(p.frame&&p.frame.parentNode)p.frame.remove(); }catch(_e){}
   }
@@ -104,6 +186,9 @@
     form.appendChild(input);
     document.body.appendChild(form);
 
+    const buttonState=startRequestButton(takeActionButton());
+    beginGlobalLoading();
+
     const timer=setTimeout(()=>{
       const p=pending.get(id);
       if(!p)return;
@@ -113,7 +198,7 @@
       failure(new Error('Backend tidak memberi respons. Semak deployment Apps Script atau sambungan internet.'));
     },timeoutMs);
 
-    pending.set(id,{success,failure,timer,frame,form});
+    pending.set(id,{success,failure,timer,frame,form,buttonState,cleaned:false});
     try{
       form.submit();
       setTimeout(()=>{ try{ if(form.parentNode)form.remove(); }catch(_e){} },0);
@@ -182,6 +267,7 @@
     probe:probeBackend,
     ensureFrame:probeBackend,
     isReady:()=>ready,
+    activeRequests:()=>activeRequests,
     clearBackend(){ try{ localStorage.removeItem('EK_APPS_SCRIPT_WEB_APP_URL'); }catch(_e){} }
   };
 
