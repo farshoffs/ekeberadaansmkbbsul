@@ -36,15 +36,15 @@ jobs:
           APP_CSS=$(basename "$(ls _site/assets/app.*.css | head -n1)")
           MOBILE_CSS=$(basename "$(ls _site/assets/mobile.*.css | head -n1)")
           CONFIG_JS=$(basename "$(ls _site/assets/config.*.js | head -n1)")
-          cat > _site/__modal-test.html <<EOF
+          cat > _site/__modal-test.html <<'HTML'
           <!doctype html>
           <html lang="en">
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <link rel="stylesheet" href="./vendor/bootstrap/bootstrap.min.css">
-            <link rel="stylesheet" href="./assets/${APP_CSS}">
-            <link rel="stylesheet" href="./assets/${MOBILE_CSS}">
+            <link rel="stylesheet" href="./assets/__APP_CSS__">
+            <link rel="stylesheet" href="./assets/__MOBILE_CSS__">
           </head>
           <body>
             <button id="behind">Behind</button>
@@ -58,7 +58,7 @@ jobs:
               </div>
             </div>
             <script src="./vendor/bootstrap/bootstrap.bundle.min.js"></script>
-            <script src="./assets/${CONFIG_JS}"></script>
+            <script src="./assets/__CONFIG_JS__"></script>
             <script>
               const modal = document.getElementById('modal');
               modal.addEventListener('shown.bs.modal', () => {
@@ -70,16 +70,17 @@ jobs:
                 const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
                 const modalZ = Number.parseInt(getComputedStyle(modal).zIndex, 10) || 0;
                 const backdropZ = Number.parseInt(getComputedStyle(backdrop).zIndex, 10) || 0;
-                document.documentElement.dataset.ekModalStack = modalZ > backdropZ ? 'ready' : `bad-${modalZ}-${backdropZ}`;
+                document.documentElement.dataset.ekModalStack = modalZ > backdropZ ? 'ready' : 'bad-' + modalZ + '-' + backdropZ;
                 document.documentElement.dataset.ekModalFocus = document.activeElement === input ? 'ready' : 'bad';
-                document.documentElement.dataset.ekModalHit = hit === input ? 'ready' : `bad-${hit && hit.className}`;
+                document.documentElement.dataset.ekModalHit = hit === input ? 'ready' : 'bad';
                 document.documentElement.dataset.ekModalWrite = input.value === 'editable' ? 'ready' : 'bad';
               });
               bootstrap.Modal.getOrCreateInstance(modal, {backdrop:true, keyboard:true, focus:true}).show();
             </script>
           </body>
           </html>
-          EOF
+          HTML
+          sed -i "s|__APP_CSS__|${APP_CSS}|g; s|__MOBILE_CSS__|${MOBILE_CSS}|g; s|__CONFIG_JS__|${CONFIG_JS}|g" _site/__modal-test.html
 
       - name: Verify modal is above backdrop and editable in Chrome
         shell: bash
