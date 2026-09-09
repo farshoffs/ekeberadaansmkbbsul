@@ -74,6 +74,16 @@ function getMyPunchCardReviewMeta(token, monthKey) {
 
   const settings = getSettings_();
   const systemStartDate = getSystemStartDate_(settings);
+  const parts = monthKey.split('-').map(Number);
+  const monthEnd = `${monthKey}-${String(new Date(parts[0], parts[1], 0).getDate()).padStart(2, '0')}`;
+  const today = todayKey_();
+  const ensureFrom = `${monthKey}-01` < systemStartDate ? systemStartDate : `${monthKey}-01`;
+  const ensureTo = monthEnd > today ? today : monthEnd;
+
+  // Reconstruct historical review rows from attendance when needed so the
+  // per-session red marker stays accurate for older punch-card months too.
+  if (ensureFrom <= ensureTo) ensureTimeReviewRowsForRange_(ensureFrom, ensureTo);
+
   const profiles = reviewerProfileMap_();
   const rows = readTimeReviewRows_()
     .filter(r => r.email === user.email && r.date >= systemStartDate && String(r.date || '').slice(0, 7) === monthKey)
