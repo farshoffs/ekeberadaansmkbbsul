@@ -1,6 +1,6 @@
-/* Responsive layer for GitHub Pages.
- * Bootstrap Grid is available for layout helpers, while the application shell
- * and navigation remain custom so the sidebar behaves like a normal panel.
+/* Responsive integration layer for the self-hosted full Bootstrap runtime.
+ * Bootstrap provides components/utilities; eKeberadaan keeps its own identity.
+ * The sidebar deliberately remains a normal in-flow panel, never offcanvas.
  */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{width:100%;max-width:100%;overflow-x:hidden}
@@ -11,8 +11,8 @@ input,select,textarea,button{max-width:100%}
 .table-wrap,.pc-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
 .table-wrap table,.pc-table-wrap table{margin-bottom:0}
 
-/* Navigation is deliberately a normal document-flow panel. It does not float,
- * overlay the page, or stay pinned independently from the page content. */
+/* Normal document-flow sidebar. Bootstrap Collapse is used only to expand or
+ * collapse it inline on phones; it never overlays/floats over the page. */
 .shell{align-items:stretch}
 .sidebar{
   position:relative;
@@ -21,17 +21,16 @@ input,select,textarea,button{max-width:100%}
   min-height:100vh;
   align-self:stretch;
 }
+.sidebar.collapse{display:flex!important}
 .sidebar-backdrop{display:none!important}
 
-/* Compact sidebar navigation.
- * These overrides intentionally make navigation feel like a menu rather than
- * a stack of oversized call-to-action buttons. */
+/* Compact Bootstrap nav-pills, themed for eKeberadaan. */
 .menu{
   gap:3px!important;
   padding:12px 0!important;
   align-content:start;
 }
-.menu-item{
+.menu-item.nav-link{
   min-height:38px;
   padding:8px 10px!important;
   border-radius:8px!important;
@@ -39,20 +38,38 @@ input,select,textarea,button{max-width:100%}
   font-size:13px!important;
   line-height:1.25!important;
   font-weight:700!important;
+  color:#c7d1e2!important;
+  display:flex;
+  align-items:center;
+  text-align:left;
 }
-.menu-item span{
+.menu-item.nav-link span{
   width:18px!important;
   font-size:15px!important;
   line-height:1;
   opacity:.9;
 }
-.menu-item:hover{
+.menu-item.nav-link:hover,.menu-item.nav-link:focus-visible{
   background:rgba(255,255,255,.06)!important;
+  color:#fff!important;
 }
-.menu-item.active{
+.menu-item.nav-link.active{
   background:rgba(16,93,187,.78)!important;
+  color:#fff!important;
   box-shadow:inset 3px 0 0 var(--yellow)!important;
 }
+
+/* Real Bootstrap component integration over the legacy visual CSS. */
+.modal{display:none;padding:0;background:transparent;place-items:initial}
+.modal.show{display:block}
+.modal .modal-dialog{width:auto}
+.modal .modal-content{border:0;border-radius:18px;box-shadow:0 22px 70px rgba(9,18,33,.28)}
+.modal .modal-body{padding:22px}
+.ek-modal-close{position:absolute;right:14px;top:14px;z-index:2}
+.modal #modalContent{padding-top:4px}
+.toast{z-index:1090}
+.btn[aria-busy="true"],.delima-check-btn[aria-busy="true"]{cursor:wait!important;opacity:.82}
+.btn[aria-busy="true"] .spinner-border,.delima-check-btn[aria-busy="true"] .spinner-border{flex:none}
 
 @media (max-width:991.98px){
   .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
@@ -61,8 +78,6 @@ input,select,textarea,button{max-width:100%}
 }
 
 @media (max-width:767.98px){
-  /* On phones the navigation becomes a collapsible panel in normal flow.
-   * The topbar stays above it and opening the menu pushes content down. */
   .shell{
     display:grid!important;
     grid-template-columns:minmax(0,1fr)!important;
@@ -78,7 +93,6 @@ input,select,textarea,button{max-width:100%}
   .content.container-fluid{grid-area:content}
   .sidebar{
     grid-area:sidebar;
-    display:none;
     position:relative!important;
     inset:auto!important;
     left:auto!important;
@@ -88,18 +102,23 @@ input,select,textarea,button{max-width:100%}
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
-    overflow:visible!important;
     overscroll-behavior:auto;
     padding:14px 12px;
     border-right:0;
     border-bottom:3px solid var(--yellow);
     z-index:auto;
-    transition:none!important;
     box-shadow:none;
   }
-  .sidebar.open{display:flex;left:auto!important}
+  .sidebar.collapse:not(.show){display:none!important}
+  .sidebar.collapse.show{display:flex!important}
+  .sidebar.collapsing{
+    display:flex!important;
+    min-height:0!important;
+    overflow:hidden!important;
+    transition:height .28s ease!important;
+  }
   .sidebar-backdrop{display:none!important}
-  .menu-item{min-height:44px;padding:9px 10px!important}
+  .menu-item.nav-link{min-height:44px;padding:9px 10px!important}
 
   .topbar{height:auto;min-height:64px;padding:9px 12px;gap:9px}
   .topbar>div:first-of-type{min-width:0}
@@ -111,9 +130,6 @@ input,select,textarea,button{max-width:100%}
   .page-heading>*,.panel-head>*,.report-builder-head>*{min-width:0;max-width:100%}
   .page-heading h1{font-size:clamp(22px,6vw,26px);line-height:1.15}
 
-  /* Home / first screen deliberately follows the compact two-column mobile
-   * composition used by the reference design instead of collapsing everything.
-   */
   #screen-home .welcome-card{
     display:grid!important;
     grid-template-columns:minmax(0,1fr) auto;
@@ -226,8 +242,9 @@ input,select,textarea,button{max-width:100%}
 
   .form-grid,.modal-grid{grid-template-columns:1fr!important}
   .span-2{grid-column:auto!important}
-  .modal{padding:8px}
-  .modal-card{width:100%;max-width:100%;max-height:calc(100dvh - 16px);border-radius:14px;padding:18px 14px}
+  .modal{padding:0}
+  .modal-dialog{margin:8px;max-width:calc(100% - 16px)}
+  .modal .modal-body{padding:18px 14px}
 
   .login-page{min-height:100dvh;padding:12px}
   .login-card{width:100%;max-width:470px;padding:22px 16px 20px}
