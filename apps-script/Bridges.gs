@@ -78,8 +78,10 @@ function pagesBridgeMethodAllowed_(method) {
     'getBootstrapData',
     'getLoginPageData',
     'getMyPunchCardMonth',
+    'getMyPunchCardReviewMeta',
     'getProfilePhoto',
     'getPublicAbsencePresenceData',
+    'getReviewerMeta',
     'getTimeReviewData',
     'loginWithPin',
     'logoutApp',
@@ -121,8 +123,10 @@ function invokePagesBridgeMethod_(method, args) {
     case 'getBootstrapData': return getBootstrapData.apply(null, args);
     case 'getLoginPageData': return getLoginPageData.apply(null, args);
     case 'getMyPunchCardMonth': return getMyPunchCardMonth.apply(null, args);
+    case 'getMyPunchCardReviewMeta': return getMyPunchCardReviewMeta.apply(null, args);
     case 'getProfilePhoto': return getProfilePhoto.apply(null, args);
     case 'getPublicAbsencePresenceData': return getPublicAbsencePresenceData.apply(null, args);
+    case 'getReviewerMeta': return getReviewerMeta.apply(null, args);
     case 'getTimeReviewData': return getTimeReviewData.apply(null, args);
     case 'loginWithPin': return loginWithPin.apply(null, args);
     case 'logoutApp': return logoutApp.apply(null, args);
