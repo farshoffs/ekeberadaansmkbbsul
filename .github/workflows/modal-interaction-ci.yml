@@ -1,0 +1,103 @@
+name: Bootstrap modal interaction CI
+
+on:
+  push:
+    branches: ["refactor/performance-v2"]
+    paths:
+      - 'Styles.html'
+      - 'Scripts.html'
+      - 'web/**'
+      - 'scripts/build-pages.py'
+      - '.github/workflows/modal-interaction-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  modal-interaction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Build static site
+        run: python3 scripts/build-pages.py
+
+      - name: Create real Bootstrap modal interaction fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_CSS=$(basename "$(ls _site/assets/app.*.css | head -n1)")
+          MOBILE_CSS=$(basename "$(ls _site/assets/mobile.*.css | head -n1)")
+          CONFIG_JS=$(basename "$(ls _site/assets/config.*.js | head -n1)")
+          cat > _site/__modal-test.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <link rel="stylesheet" href="./vendor/bootstrap/bootstrap.min.css">
+            <link rel="stylesheet" href="./assets/${APP_CSS}">
+            <link rel="stylesheet" href="./assets/${MOBILE_CSS}">
+          </head>
+          <body>
+            <button id="behind">Behind</button>
+            <div id="modal" class="modal fade" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                  <div class="modal-body">
+                    <input id="modalInput" value="before" aria-label="Modal field">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <script src="./vendor/bootstrap/bootstrap.bundle.min.js"></script>
+            <script src="./assets/${CONFIG_JS}"></script>
+            <script>
+              const modal = document.getElementById('modal');
+              modal.addEventListener('shown.bs.modal', () => {
+                const input = document.getElementById('modalInput');
+                const backdrop = document.querySelector('.modal-backdrop');
+                input.focus();
+                input.value = 'editable';
+                const r = input.getBoundingClientRect();
+                const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                const modalZ = Number.parseInt(getComputedStyle(modal).zIndex, 10) || 0;
+                const backdropZ = Number.parseInt(getComputedStyle(backdrop).zIndex, 10) || 0;
+                document.documentElement.dataset.ekModalStack = modalZ > backdropZ ? 'ready' : `bad-${modalZ}-${backdropZ}`;
+                document.documentElement.dataset.ekModalFocus = document.activeElement === input ? 'ready' : 'bad';
+                document.documentElement.dataset.ekModalHit = hit === input ? 'ready' : `bad-${hit && hit.className}`;
+                document.documentElement.dataset.ekModalWrite = input.value === 'editable' ? 'ready' : 'bad';
+              });
+              bootstrap.Modal.getOrCreateInstance(modal, {backdrop:true, keyboard:true, focus:true}).show();
+            </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Verify modal is above backdrop and editable in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          python3 -m http.server 4173 --directory _site >/tmp/eke-modal-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for n in 1 2 3 4 5; do
+            curl -fsS http://127.0.0.1:4173/__modal-test.html >/dev/null && break
+            sleep 1
+          done
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --window-size=1280,900 --virtual-time-budget=3000 --dump-dom \
+            'http://127.0.0.1:4173/__modal-test.html' > /tmp/modal-dom.html
+          grep -q 'data-ek-modal-stack="ready"' /tmp/modal-dom.html
+          grep -q 'data-ek-modal-focus="ready"' /tmp/modal-dom.html
+          grep -q 'data-ek-modal-hit="ready"' /tmp/modal-dom.html
+          grep -q 'data-ek-modal-write="ready"' /tmp/modal-dom.html
+          echo 'BOOTSTRAP_MODAL_INTERACTION_OK'
