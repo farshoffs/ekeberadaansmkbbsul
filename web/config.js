@@ -87,11 +87,20 @@ window.EK_CONFIG = Object.freeze({
     });
   }
 
-  function reviewStatusForCard(reviews, hasException) {
+  function reviewStatusForCard(reviews, hasException, legacyState) {
     const relevant = (reviews || []).filter(r => ['LEWAT','BALIK AWAL'].includes(String(r?.type || '').toUpperCase()));
-    if (!hasException && !relevant.length) return '';
     if (relevant.some(r => String(r.reviewStatus || '').toUpperCase() === 'DITOLAK')) return 'Ditolak';
     if (relevant.length && relevant.every(r => String(r.reviewStatus || '').toUpperCase() === 'DIAMBIL MAKLUM')) return 'Maklum';
+    if (relevant.length) return 'Belum diambil maklum';
+
+    // Existing getMyPunchCardMonth already supplies reviewState. Keep using it
+    // as a safe rollout fallback until the new metadata RPC is deployed, and
+    // strip historical reviewer names such as "Maklum - Pengetua" as requested.
+    const legacy = String(legacyState || '').trim().toUpperCase();
+    if (legacy.includes('DITOLAK')) return 'Ditolak';
+    if (legacy.includes('BELUM') && legacy.includes('MAKLUM')) return 'Belum diambil maklum';
+    if (legacy.includes('MAKLUM')) return 'Maklum';
+    if (!hasException) return '';
     return 'Belum diambil maklum';
   }
 
@@ -150,7 +159,7 @@ window.EK_CONFIG = Object.freeze({
       const late2 = has('LEWAT', 2) || (!hasExact && flags.includes('LEWAT') && !r.inTime && !!r.inTime2);
       const early2 = has('BALIK AWAL', 2) || (!hasExact && flags.includes('BALIK AWAL') && !r.outTime && !!r.outTime2);
       const hasException = late1 || early1 || late2 || early2 || flags.includes('LEWAT') || flags.includes('BALIK AWAL');
-      const statement = reviewStatusForCard(dateReviews, hasException);
+      const statement = reviewStatusForCard(dateReviews, hasException, r.reviewState);
       const signature = reviewerTagsForCard(dateReviews);
       const timeCell = (value, exceptional) => `<td class="${exceptional ? 'pc-time-exception' : ''}">${esc(shortTime(value))}</td>`;
 
