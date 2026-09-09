@@ -63,13 +63,96 @@ input,select,textarea,button{max-width:100%}
 .modal{display:none;padding:0;background:transparent;place-items:initial}
 .modal.show{display:block}
 .modal .modal-dialog{width:auto}
-.modal .modal-content{border:0;border-radius:18px;box-shadow:0 22px 70px rgba(9,18,33,.28)}
+.modal .modal-content{border:0;border-radius:18px;box-shadow:0 22px 70px rgba(9,18,33,.28);color:var(--ink);font:inherit}
 .modal .modal-body{padding:22px}
 .ek-modal-close{position:absolute;right:14px;top:14px;z-index:2}
-.modal #modalContent{padding-top:4px}
+.modal #modalContent{padding-top:4px;min-width:0}
+.modal #modalContent h3{margin:0 42px 18px 0;font-size:1.45rem;line-height:1.2;font-weight:800;color:var(--ink)}
+.modal #modalContent form{margin:0}
+.modal #modalContent .modal-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px}
+.modal #modalContent label{display:block;min-width:0;margin:0;font-size:13px;font-weight:700;color:#40495b}
+.modal #modalContent input:not([type="checkbox"]):not([type="radio"]),
+.modal #modalContent select,
+.modal #modalContent textarea{
+  display:block;
+  width:100%;
+  min-height:42px;
+  margin-top:6px;
+  padding:.55rem .75rem;
+  border:1px solid #ced4da;
+  border-radius:.6rem;
+  background-color:#fff;
+  color:var(--ink);
+  font:inherit;
+  line-height:1.5;
+  appearance:auto;
+  transition:border-color .15s ease-in-out,box-shadow .15s ease-in-out,background-color .15s ease-in-out;
+}
+.modal #modalContent textarea{min-height:92px;resize:vertical}
+.modal #modalContent input:not([type="checkbox"]):not([type="radio"]):focus,
+.modal #modalContent select:focus,
+.modal #modalContent textarea:focus{
+  border-color:#86b7fe;
+  outline:0;
+  box-shadow:0 0 0 .25rem rgba(13,110,253,.18);
+}
+.modal #modalContent input[readonly]{background:#f3f6fa;color:#667085}
+.modal #modalContent .check-line{
+  min-height:42px;
+  display:flex!important;
+  align-items:center;
+  gap:9px;
+  padding:8px 10px;
+  border:1px solid #e0e6ef;
+  border-radius:10px;
+  background:#f8fafc;
+}
+.modal #modalContent .check-line input[type="checkbox"],
+.modal #modalContent .check-line input[type="radio"]{
+  width:1.05rem!important;
+  height:1.05rem;
+  margin:0!important;
+  accent-color:var(--blue);
+  flex:none;
+}
+.modal #modalContent form>p:last-child{display:flex;justify-content:flex-end;gap:8px;margin:18px 0 0}
+.modal #modalContent form>p:last-child .btn{min-width:150px}
+.modal #modalContent .tiny{line-height:1.55}
 .toast{z-index:1090}
 .btn[aria-busy="true"],.delima-check-btn[aria-busy="true"]{cursor:wait!important;opacity:.82}
 .btn[aria-busy="true"] .spinner-border,.delima-check-btn[aria-busy="true"] .spinner-border{flex:none}
+
+/* Global RPC progress indicator. Kept compact so routine refreshes do not block
+ * the page; it appears only after a short debounce in gas-shim.js. */
+#ekGlobalLoading{
+  position:fixed;
+  top:max(12px,env(safe-area-inset-top));
+  right:14px;
+  z-index:2000;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:38px;
+  max-width:min(310px,calc(100vw - 28px));
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;
+  background:rgba(15,35,64,.94);
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.2;
+  box-shadow:0 10px 28px rgba(6,43,100,.22);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(-6px);
+  transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
+  pointer-events:none;
+}
+#ekGlobalLoading.show{opacity:1;visibility:visible;transform:none}
+#ekGlobalLoading .spinner-border{width:1rem;height:1rem;border-width:.15em;flex:none}
 
 @media (max-width:991.98px){
   .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
@@ -245,6 +328,10 @@ input,select,textarea,button{max-width:100%}
   .modal{padding:0}
   .modal-dialog{margin:8px;max-width:calc(100% - 16px)}
   .modal .modal-body{padding:18px 14px}
+  .modal #modalContent .modal-grid{grid-template-columns:1fr!important;gap:12px}
+  .modal #modalContent h3{font-size:1.28rem;margin-bottom:15px}
+  .modal #modalContent form>p:last-child{justify-content:stretch}
+  .modal #modalContent form>p:last-child .btn{width:100%;min-width:0}
 
   .login-page{min-height:100dvh;padding:12px}
   .login-card{width:100%;max-width:470px;padding:22px 16px 20px}
@@ -280,6 +367,7 @@ input,select,textarea,button{max-width:100%}
   .pc-legend{gap:8px}
 
   .toast{left:10px;right:10px;bottom:max(12px,env(safe-area-inset-bottom));transform:none;max-width:none;border-radius:14px}
+  #ekGlobalLoading{left:10px;right:10px;top:max(8px,env(safe-area-inset-top));max-width:none;justify-content:center}
 }
 
 @media (max-width:389.98px){
