@@ -1,0 +1,59 @@
+name: Review presentation CI
+
+on:
+  push:
+    branches: ["refactor/performance-v2"]
+    paths:
+      - 'web/config.js'
+      - 'apps-script/62_ReviewMeta.gs'
+      - 'apps-script/Bridges.gs'
+      - 'scripts/build-pages.py'
+      - '.github/workflows/review-polish-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-presentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax-check presentation scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check web/config.js
+          cp apps-script/62_ReviewMeta.gs /tmp/review-meta.js
+          cp apps-script/Bridges.gs /tmp/bridges.js
+          node --check /tmp/review-meta.js
+          node --check /tmp/bridges.js
+
+      - name: Verify bridge contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "'getReviewerMeta'" apps-script/Bridges.gs
+          grep -q "'getMyPunchCardReviewMeta'" apps-script/Bridges.gs
+          grep -q "case 'getReviewerMeta'" apps-script/Bridges.gs
+          grep -q "case 'getMyPunchCardReviewMeta'" apps-script/Bridges.gs
+
+      - name: Build static site
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          python3 scripts/build-pages.py
+
+      - name: Verify punch-card and reviewer UI contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -R -q 'pc-time-exception' _site/assets
+          grep -R -q 'reviewer-role-tag' _site/assets
+          grep -R -q 'Belum diambil maklum' _site/assets
+          grep -R -q 'getMyPunchCardReviewMeta' _site/assets
+          grep -R -q 'getReviewerMeta' _site/assets
+          echo 'REVIEW_PRESENTATION_OK'
