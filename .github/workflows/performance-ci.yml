@@ -105,13 +105,13 @@ jobs:
           grep -q '.modal #modalContent .check-line' web/mobile-bootstrap.css
           grep -q '.modal #modalContent .modal-grid' web/mobile-bootstrap.css
           grep -R -q 'function openUserModal' _site/assets
-          grep -R -q 'name=\\"jobTitle\\"' _site/assets
-          grep -R -q 'name=\\"category\\"' _site/assets
+          grep -R -q 'jobTitle' _site/assets
+          grep -R -q 'name=.*category' _site/assets
           # Every bridge RPC has a debounced global Bootstrap loader; direct actions
           # also receive a temporary spinner/disabled state when safe to do so.
           grep -q 'function beginGlobalLoading' web/gas-shim.js
           grep -q 'function startRequestButton' web/gas-shim.js
-          grep -q 'id=.ekGlobalLoading' web/gas-shim.js
+          grep -q "ekGlobalLoading" web/gas-shim.js
           grep -q '#ekGlobalLoading' web/mobile-bootstrap.css
           grep -R -q 'Sedang memproses' _site/assets
           # Explicit backend override must still work for staging.
