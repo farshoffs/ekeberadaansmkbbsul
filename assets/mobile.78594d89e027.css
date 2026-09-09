@@ -1,0 +1,382 @@
+/* Responsive integration layer for the self-hosted full Bootstrap runtime.
+ * Bootstrap provides components/utilities; eKeberadaan keeps its own identity.
+ * The sidebar deliberately remains a normal in-flow panel, never offcanvas.
+ */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+img,svg,video,canvas{max-width:100%;height:auto}
+.content.container-fluid{width:100%;min-width:0}
+.panel,.welcome-card,.quick-card,.main-area,.screen{min-width:0}
+input,select,textarea,button{max-width:100%}
+.table-wrap,.pc-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
+.table-wrap table,.pc-table-wrap table{margin-bottom:0}
+
+/* Normal document-flow sidebar. Bootstrap Collapse is used only to expand or
+ * collapse it inline on phones; it never overlays/floats over the page. */
+.shell{align-items:stretch}
+.sidebar{
+  position:relative;
+  top:auto;
+  height:auto;
+  min-height:100vh;
+  align-self:stretch;
+}
+.sidebar.collapse{display:flex!important}
+.sidebar-backdrop{display:none!important}
+
+/* Compact Bootstrap nav-pills, themed for eKeberadaan. */
+.menu{
+  gap:3px!important;
+  padding:12px 0!important;
+  align-content:start;
+}
+.menu-item.nav-link{
+  min-height:38px;
+  padding:8px 10px!important;
+  border-radius:8px!important;
+  gap:8px!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+  font-weight:700!important;
+  color:#c7d1e2!important;
+  display:flex;
+  align-items:center;
+  text-align:left;
+}
+.menu-item.nav-link span{
+  width:18px!important;
+  font-size:15px!important;
+  line-height:1;
+  opacity:.9;
+}
+.menu-item.nav-link:hover,.menu-item.nav-link:focus-visible{
+  background:rgba(255,255,255,.06)!important;
+  color:#fff!important;
+}
+.menu-item.nav-link.active{
+  background:rgba(16,93,187,.78)!important;
+  color:#fff!important;
+  box-shadow:inset 3px 0 0 var(--yellow)!important;
+}
+
+/* Real Bootstrap component integration over the legacy visual CSS. */
+.modal{display:none;padding:0;background:transparent;place-items:initial}
+.modal.show{display:block}
+.modal .modal-dialog{width:auto}
+.modal .modal-content{border:0;border-radius:18px;box-shadow:0 22px 70px rgba(9,18,33,.28);color:var(--ink);font:inherit}
+.modal .modal-body{padding:22px}
+.ek-modal-close{position:absolute;right:14px;top:14px;z-index:2}
+.modal #modalContent{padding-top:4px;min-width:0}
+.modal #modalContent h3{margin:0 42px 18px 0;font-size:1.45rem;line-height:1.2;font-weight:800;color:var(--ink)}
+.modal #modalContent form{margin:0}
+.modal #modalContent .modal-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px}
+.modal #modalContent label{display:block;min-width:0;margin:0;font-size:13px;font-weight:700;color:#40495b}
+.modal #modalContent input:not([type="checkbox"]):not([type="radio"]),
+.modal #modalContent select,
+.modal #modalContent textarea{
+  display:block;
+  width:100%;
+  min-height:42px;
+  margin-top:6px;
+  padding:.55rem .75rem;
+  border:1px solid #ced4da;
+  border-radius:.6rem;
+  background-color:#fff;
+  color:var(--ink);
+  font:inherit;
+  line-height:1.5;
+  appearance:auto;
+  transition:border-color .15s ease-in-out,box-shadow .15s ease-in-out,background-color .15s ease-in-out;
+}
+.modal #modalContent textarea{min-height:92px;resize:vertical}
+.modal #modalContent input:not([type="checkbox"]):not([type="radio"]):focus,
+.modal #modalContent select:focus,
+.modal #modalContent textarea:focus{
+  border-color:#86b7fe;
+  outline:0;
+  box-shadow:0 0 0 .25rem rgba(13,110,253,.18);
+}
+.modal #modalContent input[readonly]{background:#f3f6fa;color:#667085}
+.modal #modalContent .check-line{
+  min-height:42px;
+  display:flex!important;
+  align-items:center;
+  gap:9px;
+  padding:8px 10px;
+  border:1px solid #e0e6ef;
+  border-radius:10px;
+  background:#f8fafc;
+}
+.modal #modalContent .check-line input[type="checkbox"],
+.modal #modalContent .check-line input[type="radio"]{
+  width:1.05rem!important;
+  height:1.05rem;
+  margin:0!important;
+  accent-color:var(--blue);
+  flex:none;
+}
+.modal #modalContent form>p:last-child{display:flex;justify-content:flex-end;gap:8px;margin:18px 0 0}
+.modal #modalContent form>p:last-child .btn{min-width:150px}
+.modal #modalContent .tiny{line-height:1.55}
+.toast{z-index:1090}
+.btn[aria-busy="true"],.delima-check-btn[aria-busy="true"]{cursor:wait!important;opacity:.82}
+.btn[aria-busy="true"] .spinner-border,.delima-check-btn[aria-busy="true"] .spinner-border{flex:none}
+
+/* Global RPC progress indicator. Kept compact so routine refreshes do not block
+ * the page; it appears only after a short debounce in gas-shim.js. */
+#ekGlobalLoading{
+  position:fixed;
+  top:max(12px,env(safe-area-inset-top));
+  right:14px;
+  z-index:2000;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:38px;
+  max-width:min(310px,calc(100vw - 28px));
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;
+  background:rgba(15,35,64,.94);
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.2;
+  box-shadow:0 10px 28px rgba(6,43,100,.22);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(-6px);
+  transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
+  pointer-events:none;
+}
+#ekGlobalLoading.show{opacity:1;visibility:visible;transform:none}
+#ekGlobalLoading .spinner-border{width:1rem;height:1rem;border-width:.15em;flex:none}
+
+@media (max-width:991.98px){
+  .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
+  .page-heading,.panel-head{gap:12px}
+  .report-builder-actions,.toolbar-actions{flex-wrap:wrap}
+}
+
+@media (max-width:767.98px){
+  .shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-areas:
+      "topbar"
+      "sidebar"
+      "content";
+    width:100%;
+    max-width:100%;
+  }
+  .main-area{display:contents}
+  .topbar{grid-area:topbar}
+  .content.container-fluid{grid-area:content}
+  .sidebar{
+    grid-area:sidebar;
+    position:relative!important;
+    inset:auto!important;
+    left:auto!important;
+    top:auto!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overscroll-behavior:auto;
+    padding:14px 12px;
+    border-right:0;
+    border-bottom:3px solid var(--yellow);
+    z-index:auto;
+    box-shadow:none;
+  }
+  .sidebar.collapse:not(.show){display:none!important}
+  .sidebar.collapse.show{display:flex!important}
+  .sidebar.collapsing{
+    display:flex!important;
+    min-height:0!important;
+    overflow:hidden!important;
+    transition:height .28s ease!important;
+  }
+  .sidebar-backdrop{display:none!important}
+  .menu-item.nav-link{min-height:44px;padding:9px 10px!important}
+
+  .topbar{height:auto;min-height:64px;padding:9px 12px;gap:9px}
+  .topbar>div:first-of-type{min-width:0}
+  .topbar>div:first-of-type b{white-space:normal;line-height:1.2}
+  .top-actions{flex:0 0 auto;gap:6px}
+
+  .content.container-fluid{padding:12px!important}
+  .page-heading,.panel-head,.punchcard-page-heading,.report-builder-head{display:flex;flex-direction:column;align-items:stretch!important}
+  .page-heading>*,.panel-head>*,.report-builder-head>*{min-width:0;max-width:100%}
+  .page-heading h1{font-size:clamp(22px,6vw,26px);line-height:1.15}
+
+  #screen-home .welcome-card{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:start!important;
+    gap:12px 14px;
+    padding:18px 16px 18px 20px!important;
+    border-radius:18px;
+  }
+  #screen-home .welcome-card>div:first-child{min-width:0;padding-top:2px}
+  #screen-home .welcome-card .eyebrow{font-size:11px;letter-spacing:.18em}
+  #screen-home .welcome-card h2{
+    font-size:clamp(26px,7.8vw,34px);
+    line-height:1.18;
+    letter-spacing:.01em;
+    margin:8px 0 8px;
+    overflow-wrap:anywhere;
+  }
+  #screen-home .welcome-card p{font-size:14px;line-height:1.45}
+  #screen-home .welcome-right{
+    width:auto;
+    min-width:82px;
+    display:flex;
+    flex-direction:column-reverse!important;
+    align-items:flex-end!important;
+    justify-content:flex-start;
+    gap:10px;
+    margin-left:auto;
+  }
+  #screen-home .welcome-profile.large{
+    width:84px;
+    height:84px;
+    flex:none;
+    font-size:26px;
+    border:3px solid #fff;
+    box-shadow:0 8px 20px rgba(23,32,51,.15);
+  }
+  #screen-home #homeStatusBadge{
+    max-width:126px;
+    padding:7px 10px;
+    font-size:11px;
+    line-height:1.15;
+    white-space:normal;
+    text-align:center;
+    justify-content:center;
+  }
+
+  #screen-home .home-punch-panel{padding:18px 16px!important;border-radius:18px}
+  #screen-home .home-punch-heading{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:flex-start!important;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  #screen-home .home-punch-heading>div{flex:1 1 auto;min-width:0}
+  #screen-home .home-punch-heading h1{
+    font-size:clamp(28px,8vw,34px);
+    line-height:1.15;
+    margin-top:5px;
+  }
+  #screen-home .home-punch-heading #statusBadge{
+    flex:0 0 auto;
+    max-width:126px;
+    margin-top:28px;
+    padding:7px 10px;
+    font-size:11px;
+    line-height:1.15;
+  }
+  #screen-home .home-schedule-grid{
+    display:grid;
+    grid-template-columns:1fr!important;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  #screen-home .home-schedule-grid>div{
+    min-height:78px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:14px 16px;
+    border-radius:14px;
+  }
+  #screen-home .home-schedule-grid span{font-size:12px;margin-bottom:2px}
+  #screen-home .home-schedule-grid b{font-size:20px;line-height:1.2}
+  #screen-home .location-box{
+    flex-direction:row;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    border-radius:14px;
+  }
+  #screen-home .location-box>div{min-width:0;width:auto;flex:1 1 auto}
+  #screen-home .gps-dot{flex:0 0 12px}
+
+  .welcome-card:not(#screen-home .welcome-card){flex-direction:column;align-items:stretch!important;gap:14px}
+  .welcome-right:not(#screen-home .welcome-right){width:100%;display:flex;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px}
+  .welcome-profile.large{width:76px;height:76px;font-size:24px}
+  .badge{white-space:normal;text-align:center;justify-content:center}
+
+  .location-box{flex-direction:column;align-items:flex-start;gap:10px}
+  .location-box>div{min-width:0;width:100%}
+  .button-row{grid-template-columns:1fr!important}
+  .btn,.delima-check-btn{min-height:44px}
+
+  .punchcard-actions,.toolbar-actions,.report-builder-actions{width:100%}
+  .punchcard-actions .btn,.toolbar-actions .btn,.report-builder-actions .btn{flex:1 1 auto}
+  .month-picker{width:100%}
+  .month-picker input{width:100%}
+
+  .form-grid,.modal-grid{grid-template-columns:1fr!important}
+  .span-2{grid-column:auto!important}
+  .modal{padding:0}
+  .modal-dialog{margin:8px;max-width:calc(100% - 16px)}
+  .modal .modal-body{padding:18px 14px}
+  .modal #modalContent .modal-grid{grid-template-columns:1fr!important;gap:12px}
+  .modal #modalContent h3{font-size:1.28rem;margin-bottom:15px}
+  .modal #modalContent form>p:last-child{justify-content:stretch}
+  .modal #modalContent form>p:last-child .btn{width:100%;min-width:0}
+
+  .login-page{min-height:100dvh;padding:12px}
+  .login-card{width:100%;max-width:470px;padding:22px 16px 20px}
+  .login-logo{width:92px;height:92px}
+
+  .physical-card{width:100%!important;max-width:100%}
+  .pc-topline{padding-left:14px;padding-right:14px}
+  .pc-info-row{grid-template-columns:82px minmax(0,1fr);padding-left:12px;padding-right:12px}
+  .pc-title-row{gap:8px;padding-left:12px;padding-right:12px}
+  .pc-title-row>div{min-width:0}
+  .pc-title-row>div strong{margin-left:0!important;text-align:left}
+}
+
+@media (max-width:575.98px){
+  .content.container-fluid{padding:10px!important}
+  .panel,.welcome-card{padding:14px!important;border-radius:14px;margin-bottom:12px}
+  #screen-home .welcome-card{padding:17px 14px 17px 18px!important;border-radius:18px}
+  #screen-home .home-punch-panel{padding:18px 16px!important;border-radius:18px}
+  .quick-card{padding:15px}
+  .quick-grid,.home-links{gap:10px}
+
+  .home-schedule-grid,.home-punch-times,.punch-times,.schedule-grid-five{grid-template-columns:1fr!important}
+  .time-card strong{font-size:clamp(22px,8vw,27px)}
+  .summary-grid{grid-template-columns:1fr 1fr!important;gap:8px}
+  .summary-card{padding:10px}
+
+  .top-actions .btn.small{display:none}
+  .role-chip{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .pc-table{min-width:510px}
+  .pc-table-wrap{margin-left:-2px;margin-right:-2px}
+  .pc-warning{padding-left:12px;padding-right:12px}
+  .pc-legend{gap:8px}
+
+  .toast{left:10px;right:10px;bottom:max(12px,env(safe-area-inset-bottom));transform:none;max-width:none;border-radius:14px}
+  #ekGlobalLoading{left:10px;right:10px;top:max(8px,env(safe-area-inset-top));max-width:none;justify-content:center}
+}
+
+@media (max-width:389.98px){
+  .summary-grid{grid-template-columns:1fr!important}
+  #screen-home .welcome-card{grid-template-columns:minmax(0,1fr) 74px;gap:10px}
+  #screen-home .welcome-card h2{font-size:clamp(24px,7.2vw,29px)}
+  #screen-home .welcome-right{min-width:74px;gap:8px}
+  #screen-home .welcome-profile.large{width:70px;height:70px}
+  #screen-home #homeStatusBadge,#screen-home .home-punch-heading #statusBadge{font-size:10px;padding:6px 8px;max-width:108px}
+  #screen-home .home-punch-heading h1{font-size:27px}
+  .login-card h1{font-size:22px}
+}
