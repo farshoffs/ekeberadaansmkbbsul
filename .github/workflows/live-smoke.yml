@@ -1,19 +1,9 @@
 name: Live web smoke test
 
 on:
-  push:
-    branches: ["refactor/performance-v2"]
-    paths:
-      - 'Index.html'
-      - 'Scripts.html'
-      - 'Styles.html'
-      - 'Logo.html'
-      - 'package.json'
-      - 'web/**'
-      - 'scripts/build-pages.py'
-      - 'apps-script/Bridge.html'
-      - 'apps-script/Bridges.gs'
-      - '.github/workflows/live-smoke.yml'
+  workflow_run:
+    workflows: ["Publish optimized eKeberadaan web"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -21,9 +11,12 @@ permissions:
 
 jobs:
   smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refactor/performance-v2
 
       - name: Resolve backend URL
         id: backend
