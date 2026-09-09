@@ -1,6 +1,6 @@
-/* Mobile-first responsive layer for GitHub Pages.
- * Bootstrap Grid is loaded before this file; these rules preserve the existing
- * eKeberadaan visual identity while fixing narrow-screen overflow/layout.
+/* Responsive layer for GitHub Pages.
+ * Bootstrap Grid is available for layout helpers, while the application shell
+ * and navigation remain custom so the sidebar behaves like a normal panel.
  */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{width:100%;max-width:100%;overflow-x:hidden}
@@ -11,6 +11,18 @@ input,select,textarea,button{max-width:100%}
 .table-wrap,.pc-table-wrap{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain}
 .table-wrap table,.pc-table-wrap table{margin-bottom:0}
 
+/* Navigation is deliberately a normal document-flow panel. It does not float,
+ * overlay the page, or stay pinned independently from the page content. */
+.shell{align-items:stretch}
+.sidebar{
+  position:relative;
+  top:auto;
+  height:auto;
+  min-height:100vh;
+  align-self:stretch;
+}
+.sidebar-backdrop{display:none!important}
+
 @media (max-width:991.98px){
   .content.container-fluid{max-width:100%;padding-left:16px;padding-right:16px}
   .page-heading,.panel-head{gap:12px}
@@ -18,11 +30,44 @@ input,select,textarea,button{max-width:100%}
 }
 
 @media (max-width:767.98px){
-  .shell,.main-area{width:100%;max-width:100%}
-  .main-area{overflow-x:hidden}
-  .sidebar{height:100dvh;max-width:min(86vw,300px);left:-100%;overflow-y:auto;overscroll-behavior:contain}
-  .sidebar.open{left:0}
-  .sidebar-backdrop{position:fixed;inset:0}
+  /* On phones the navigation becomes a collapsible panel in normal flow.
+   * The topbar stays above it and opening the menu pushes content down. */
+  .shell{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-areas:
+      "topbar"
+      "sidebar"
+      "content";
+    width:100%;
+    max-width:100%;
+  }
+  .main-area{display:contents}
+  .topbar{grid-area:topbar}
+  .content.container-fluid{grid-area:content}
+  .sidebar{
+    grid-area:sidebar;
+    display:none;
+    position:relative!important;
+    inset:auto!important;
+    left:auto!important;
+    top:auto!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    overscroll-behavior:auto;
+    padding:14px 12px;
+    border-right:0;
+    border-bottom:3px solid var(--yellow);
+    z-index:auto;
+    transition:none!important;
+    box-shadow:none;
+  }
+  .sidebar.open{display:flex;left:auto!important}
+  .sidebar-backdrop{display:none!important}
 
   .topbar{height:auto;min-height:64px;padding:9px 12px;gap:9px}
   .topbar>div:first-of-type{min-width:0}
