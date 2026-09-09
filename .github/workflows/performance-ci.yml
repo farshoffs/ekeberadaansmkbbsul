@@ -94,6 +94,29 @@ jobs:
           grep -q 'sidebar.collapse:not(.show)' web/mobile-bootstrap.css
           grep -q 'overflow-x:auto' web/mobile-bootstrap.css
 
+      - name: Verify admin modal and async loading regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          # User/admin modal controls must never fall back to unstyled browser defaults.
+          grep -q '.modal #modalContent input:not' web/mobile-bootstrap.css
+          grep -q '.modal #modalContent select' web/mobile-bootstrap.css
+          grep -q '.modal #modalContent textarea' web/mobile-bootstrap.css
+          grep -q '.modal #modalContent .check-line' web/mobile-bootstrap.css
+          grep -q '.modal #modalContent .modal-grid' web/mobile-bootstrap.css
+          grep -R -q 'function openUserModal' _site/assets
+          grep -R -q 'name=\\"jobTitle\\"' _site/assets
+          grep -R -q 'name=\\"category\\"' _site/assets
+          # Every bridge RPC has a debounced global Bootstrap loader; direct actions
+          # also receive a temporary spinner/disabled state when safe to do so.
+          grep -q 'function beginGlobalLoading' web/gas-shim.js
+          grep -q 'function startRequestButton' web/gas-shim.js
+          grep -q 'id=.ekGlobalLoading' web/gas-shim.js
+          grep -q '#ekGlobalLoading' web/mobile-bootstrap.css
+          grep -R -q 'Sedang memproses' _site/assets
+          # Explicit backend override must still work for staging.
+          grep -q 'queryBackend,configuredBackend,storedBackend' web/gas-shim.js
+
       - name: Performance budget
         shell: bash
         run: |
@@ -132,9 +155,12 @@ jobs:
           grep -R -q 'function diagnosePerformanceBackend' apps-script/95_Diagnostics.gs
           grep -R -q 'EK_RUNTIME_ABSENCE_ROWS_' apps-script
           grep -R -q 'Asia/Kuala_Lumpur' apps-script/appsscript.json
+          grep -R -q 'function isPagesWebOriginAllowed_' apps-script/Bridges.gs
+          grep -R -q 'EK_PAGES_ORIGINS' apps-script/Bridges.gs
           ! grep -R -q "createTemplateFromFile('Index')" apps-script/*.gs
           test ! -e Code.gs
           test ! -e .github/workflows/apps-script-deploy.yml
+          test ! -e .github/workflows/mirror-repository.yml
           count=$(find apps-script -maxdepth 1 -name '*.gs' | wc -l)
           echo "Apps Script modules=$count"
           test "$count" -ge 16
