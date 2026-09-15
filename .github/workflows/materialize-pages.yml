@@ -1,0 +1,50 @@
+name: Materialize GitHub Pages bundle
+
+on:
+  push:
+    paths:
+      - '_pages_sync/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct Pages bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat _pages_sync/pages.part.* > /tmp/pages-static.tar.gz.b64
+          echo 'c0cc7afc00448e64140e21be9e88bf498a4e44c4c906f47c7d433367ad7a0a22  /tmp/pages-static.tar.gz.b64' | sha256sum -c -
+          base64 -d /tmp/pages-static.tar.gz.b64 > /tmp/pages-static.tar.gz
+          echo '50d0a87369f0c2f6df7de6c56b56ce970e767045234c77cbd34dceeed3ab643a  /tmp/pages-static.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/pages-static.tar.gz
+          test -s web/index.html
+          test -s web/app.js
+          test -s web/gas-shim.js
+          test -s apps-script/Bridge.html
+          test -s apps-script/PagesBridge.gs
+          node --check web/app.js
+          node --check web/gas-shim.js
+          if grep -q '<?' web/index.html; then
+            echo 'Apps Script template marker leaked into static index.'
+            exit 1
+          fi
+          rm -rf _pages_sync
+
+      - name: Commit GitHub Pages architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'eKeberadaan Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add web apps-script _pages_sync
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'feat: migrate web hosting to GitHub Pages'
+          git push

@@ -1,0 +1,42 @@
+name: eKeberadaan Next CI
+
+on:
+  push:
+    branches: ["migration/nextjs-pwa"]
+    paths: ["modern/**", ".github/workflows/modern-next-ci.yml"]
+  pull_request:
+    paths: ["modern/**", ".github/workflows/modern-next-ci.yml"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: modern
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package modern source
+        working-directory: .
+        run: git archive --format=tar.gz --output=/tmp/modern-source.tar.gz HEAD modern
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          GOOGLE_SHEET_ID: build-placeholder
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: build-placeholder@example.invalid
+          GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nMIIB\\n-----END PRIVATE KEY-----\\n"
+          EK_PASSWORD_PEPPER: build-placeholder
+          EK_WEB_SESSION_SECRET: build-placeholder-build-placeholder-build-placeholder
+          EK_TRUSTED_DEVICE_SECRET: build-placeholder-build-placeholder-build-placeholder
+
+      - name: Upload modern source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: modern-source
+          path: /tmp/modern-source.tar.gz
+          retention-days: 1
