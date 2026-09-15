@@ -114,6 +114,12 @@ function invalidateSettingsCache_() { EK_RUNTIME_SETTINGS_ = null; try { getScri
 function invalidateTrustedDevicesCache_() { EK_RUNTIME_TRUSTED_DEVICES_ = null; try { getScriptCache_().remove(EK_PERF.TRUSTED_DEVICES_CACHE_KEY); } catch (e) {} }
 
 function doGet(e) {
+  // GitHub Pages calls the existing Apps Script backend through a hidden iframe.
+  // All authentication/PIN/session/Sheets/Drive work remains server-side here.
+  if (e && e.parameter && String(e.parameter.bridge || '') === '1') {
+    return renderPagesBridge_();
+  }
+
   const tpl = HtmlService.createTemplateFromFile('Index');
   return tpl
     .evaluate()

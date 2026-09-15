@@ -1,0 +1,38 @@
+name: Smoke test GitHub Pages browser bridge
+
+on:
+  push:
+    branches: ["migration/github-pages-appsscript"]
+    paths:
+      - '.github/workflows/pages-browser-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+          (google-chrome --version || chromium --version || chromium-browser --version)
+      - name: Load live GitHub Pages and verify bridge handshake
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          "$CHROME" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --virtual-time-budget=12000 --dump-dom \
+            'https://farshoffs.github.io/ekeberadaansmkbbsul/?smoke=1' > /tmp/dom.html
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('/tmp/dom.html').read_text(encoding='utf-8',errors='replace')
+          print('DOM_BYTES',len(text.encode('utf-8')))
+          if 'Backend tersambung' not in text:
+              print(text[-4000:])
+              raise SystemExit('GitHub Pages did not complete the Apps Script bridge handshake.')
+          print('PAGES_BRIDGE_OK')
+          PY
