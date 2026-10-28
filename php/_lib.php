@@ -47,8 +47,20 @@ function excel_number($x): float {
 }
 function time_text($x): string {
     if ($x === null || $x === '') return '';
-    if (is_numeric($x)) return gmdate('H:i', (int)round((((float)$x-floor((float)$x))*86400))%86400);
-    if (preg_match('/^\d\d:\d\d/',(string)$x)) return substr((string)$x,0,5);
+    if ($x instanceof DateTimeInterface) return $x->format('H:i');
+    $v=trim((string)$x);
+    // The original Sheets export stores Sesi 1 as DATETIME(6), Sesi 2 as
+    // Excel serial DOUBLE, and some settings as fractional Excel time.
+    if (preg_match('/^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?$/',$v))
+        return substr($v,0,5);
+    if (preg_match('/^\\d{4}-\\d{2}-\\d{2}[ T](\\d{2}:\\d{2})(?::\\d{2}(?:\\.\\d+)?)?(?:Z|[+-]\\d{2}:?\\d{2})?$/',$v,$m))
+        return $m[1];
+    if (is_numeric($v)) {
+        $fraction=fmod((float)$v,1.0);
+        if ($fraction<0) $fraction+=1.0;
+        $minutes=(int)round($fraction*1440) % 1440;
+        return sprintf('%02d:%02d',intdiv($minutes,60),$minutes%60);
+    }
     return '';
 }
 function valid_day(string $d): string {
