@@ -7,4 +7,7 @@ return [
   'database' => 'ppdkmyna_ekeberadaansmkbbsul',
   'username' => 'ppdkmyna_ekeberadaansmkbbsul',
   'password' => 'REPLACE_ON_SERVER',
+  // Generate 64 random hexadecimal characters; required only for browser setup.
+  // Remove this line after the first administrator PIN is activated.
+  'setup_key' => 'REPLACE_WITH_64_RANDOM_HEX_CHARACTERS',
 ];
