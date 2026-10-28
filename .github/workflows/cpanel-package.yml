@@ -46,6 +46,26 @@ jobs:
             echo 'Unexpected Google Apps Script RPC in PHP site'
             exit 1
           fi
+      - name: HTTP API health smoke test (no DB credentials required)
+        shell: bash
+        run: |
+          set -eu
+          php -S 127.0.0.1:18765 -t . > /tmp/eke-php-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 25); do
+            if curl -sS -m 3 -o /tmp/eke-api-health.json \
+              -H 'Content-Type: application/json' \
+              -d '{"fn":"getApiStatus","args":[]}' \
+              http://127.0.0.1:18765/api.php; then
+              ready=1
+              break
+            fi
+            sleep 0.3
+          done
+          if [ "$ready" != 1 ]; then cat /tmp/eke-php-server.log; exit 1; fi
+          php -r '$x=json_decode(file_get_contents("/tmp/eke-api-health.json"),true); if(!is_array($x) || !($x["ok"]??false) || !($x["result"]["healthy"]??false)) {fwrite(STDERR,"API health failed without MySQL configuration\n");exit(1);} echo "API health PASS\n";'
       - name: Package only PHP hosting runtime — leave database secrets untouched
         shell: bash
         run: |
