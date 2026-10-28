@@ -7,6 +7,10 @@ return [
   'database' => 'ppdkmyna_ekeberadaansmkbbsul',
   'username' => 'ppdkmyna_ekeberadaansmkbbsul',
   'password' => 'REPLACE_ON_SERVER',
+  // REQUIRED to reuse existing Google Sheets PIN_V1 values without reset.
+  // Get the ORIGINAL value of EK_PASSWORD_PEPPER from the source Apps Script
+  // project > Project Settings > Script Properties. Paste it only on the host.
+  'legacy_pin_pepper' => 'PASTE_ORIGINAL_EK_PASSWORD_PEPPER_HERE',
   // Generate 64 random hexadecimal characters; required only for browser setup.
   // Remove this line after the first administrator PIN is activated.
   'setup_key' => 'REPLACE_WITH_64_RANDOM_HEX_CHARACTERS',
