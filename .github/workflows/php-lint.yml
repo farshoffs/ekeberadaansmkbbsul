@@ -9,6 +9,7 @@ on:
       - 'Logo.html'
       - 'index.php'
       - 'api.php'
+      - 'probe.php'
       - 'setup.php'
       - '.htaccess'
       - '.github/workflows/php-lint.yml'
@@ -32,6 +33,7 @@ jobs:
           find php -name '*.php' -type f ! -name 'config.local.php' -print0 | xargs -0 -n1 php -l
           php -l index.php
           php -l api.php
+          php -l probe.php
           php -l setup.php
           php php/tests/mysql-time-test.php
           node --check < Scripts.html
@@ -82,6 +84,12 @@ jobs:
           done
           if [ "$ready" != 1 ]; then cat /tmp/eke-php-server.log; exit 1; fi
           php -r '$x=json_decode(file_get_contents("/tmp/eke-api-health.json"),true); if(!is_array($x) || !($x["ok"]??false) || !($x["result"]["healthy"]??false)) {fwrite(STDERR,"API health failed without MySQL configuration\n");exit(1);} echo "API health PASS\n";'
+          code=$(curl -sS -o /tmp/eke-root-health.json -w '%{http_code}' 'http://127.0.0.1:18765/api.php?health=1')
+          test "$code" = "200"
+          php -r '$x=json_decode(file_get_contents("/tmp/eke-root-health.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="root-gateway")exit(1); echo "Root API diagnostic PASS\n";'
+          code=$(curl -sS -o /tmp/eke-probe.json -w '%{http_code}' 'http://127.0.0.1:18765/probe.php')
+          test "$code" = "200"
+          php -r '$x=json_decode(file_get_contents("/tmp/eke-probe.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="standalone-php")exit(1); echo "Standalone hosting diagnostic PASS\n";'
       - name: Verify browser setup page and PIN UI syntax
         run: |
           set -eu
