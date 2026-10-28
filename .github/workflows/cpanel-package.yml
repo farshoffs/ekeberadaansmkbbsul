@@ -10,6 +10,7 @@ on:
       - 'Styles.html'
       - 'index.php'
       - 'api.php'
+      - 'probe.php'
       - '.htaccess'
       - 'php/**'
       - '.github/workflows/cpanel-package.yml'
@@ -25,6 +26,7 @@ jobs:
           set -eu
           php -l index.php
           php -l api.php
+          php -l probe.php
           php -l php/_lib.php
           php -l php/api.php
           php -l php/index.php
@@ -66,12 +68,18 @@ jobs:
           done
           if [ "$ready" != 1 ]; then cat /tmp/eke-php-server.log; exit 1; fi
           php -r '$x=json_decode(file_get_contents("/tmp/eke-api-health.json"),true); if(!is_array($x) || !($x["ok"]??false) || !($x["result"]["healthy"]??false)) {fwrite(STDERR,"API health failed without MySQL configuration\n");exit(1);} echo "API health PASS\n";'
+          code=$(curl -sS -o /tmp/eke-root-health.json -w '%{http_code}' 'http://127.0.0.1:18765/api.php?health=1')
+          test "$code" = "200"
+          php -r '$x=json_decode(file_get_contents("/tmp/eke-root-health.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="root-gateway")exit(1); echo "Root API diagnostic PASS\n";'
+          code=$(curl -sS -o /tmp/eke-probe.json -w '%{http_code}' 'http://127.0.0.1:18765/probe.php')
+          test "$code" = "200"
+          php -r '$x=json_decode(file_get_contents("/tmp/eke-probe.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="standalone-php")exit(1); echo "Standalone hosting diagnostic PASS\n";'
       - name: Package only PHP hosting runtime — leave database secrets untouched
         shell: bash
         run: |
           set -eu
           mkdir -p /tmp/deploy/php
-          cp index.php api.php Index.html Scripts.html Styles.html Logo.html .htaccess /tmp/deploy/
+          cp index.php api.php probe.php Index.html Scripts.html Styles.html Logo.html .htaccess /tmp/deploy/
           cp php/index.php php/api.php php/_lib.php php/workspace_bridge.php php/workspace_services.php php/pin-ui.js php/.htaccess php/config.local.example.php php/schema.sql /tmp/deploy/php/
           test ! -e /tmp/deploy/php/config.local.php
           test ! -e /tmp/deploy/setup.php
@@ -79,6 +87,20 @@ jobs:
           cd /tmp/deploy
           zip -q -r "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip" .
           unzip -l "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip"
+      - name: Create minimal API diagnostic hotfix (only 2 files)
+        shell: bash
+        run: |
+          set -eu
+          mkdir -p /tmp/hotfix
+          cp api.php probe.php /tmp/hotfix/
+          cd /tmp/hotfix
+          zip -q "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-api-diagnostic.zip" api.php probe.php
+      - name: Attach minimal diagnostic ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ekeberadaansmkbbsul-api-diagnostic
+          path: ekeberadaansmkbbsul-api-diagnostic.zip
+          retention-days: 14
       - name: Attach cPanel ZIP
         uses: actions/upload-artifact@v4
         with:
