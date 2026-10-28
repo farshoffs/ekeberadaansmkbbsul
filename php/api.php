@@ -17,6 +17,7 @@ if ($origin && parse_url($origin,PHP_URL_HOST)!==($_SERVER['HTTP_HOST']??'')) {
 }
 try {
     require_once __DIR__.'/_lib.php';
+    require_once __DIR__.'workspace_services.php';
     $input=json_decode((string)file_get_contents('php://input'),true,128,JSON_THROW_ON_ERROR);
     if (!is_array($input)||!is_string($input['fn']??null)||!is_array($input['args']??null)) throw new InvalidArgumentException('Request tidak sah.');
     $result=rpc($input['fn'],$input['args']);
@@ -80,9 +81,18 @@ function rpc(string $fn,array $a) {
       case 'getBootstrapData':
         return bootstrap(require_user($a[0]??''));
       case 'getProfilePhoto':
-        require_user($a[0]??'');return ['ok'=>true,'dataUrl'=>''];
+        return workspace_user_photo(require_user($a[0]??''),(string)($a[1]??''));
       case 'punch':
         return punch_mysql(require_user($a[0]??''),(string)($a[1]??''),$a[2]??null);
+      case 'adminSyncProfilePhotos':
+        return workspace_sync_photos(require_user($a[0]??'',true));
+      case 'generatePublicAbsencePresencePdf':
+      case 'generateAbsencePresencePdf':
+      case 'generateTimeReviewPdf':
+      case 'generateAttendancePresenceReportPdf':
+      case 'generateAttendancePresenceReportSheet':
+      case 'generateReportSheet':
+        return workspace_report(require_user($a[0]??''),$fn,$a[1]??[]);
       case 'getMyPunchCardMonth':
         return punch_card(require_user($a[0]??''),(string)($a[1]??''));
       case 'adminGetPunchCardMonth':
@@ -184,9 +194,7 @@ function rpc(string $fn,array $a) {
         }
         return ['ok'=>true,'results'=>$results];
       default:
-        if (in_array($fn,['generateReportSheet','generateAttendancePresenceReportPdf','generateAttendancePresenceReportSheet',
-          'generatePublicAbsencePresencePdf','generateAbsencePresencePdf','generateTimeReviewPdf','adminSyncProfilePhotos',
-          'adminRepairAttendanceDuplicates'],true)) {
+        if (in_array($fn,['adminRepairAttendanceDuplicates'],true)) {
             require_user($a[0]??'',true);
             throw new RuntimeException('Fungsi eksport / penyelenggaraan ini belum dimigrasi kepada PHP.');
         }
