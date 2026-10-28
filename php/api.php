@@ -16,8 +16,9 @@ if ($origin && parse_url($origin,PHP_URL_HOST)!==($_SERVER['HTTP_HOST']??'')) {
     http_response_code(403); echo json_encode(['ok'=>false,'error'=>'Origin denied']); exit;
 }
 try {
+    // Load only core MySQL code on login. Workspace may be unavailable,
+    // so Drive/PDF integration must never interrupt authentication.
     require_once __DIR__.'/_lib.php';
-    require_once __DIR__.'workspace_services.php';
     $input=json_decode((string)file_get_contents('php://input'),true,128,JSON_THROW_ON_ERROR);
     if (!is_array($input)||!is_string($input['fn']??null)||!is_array($input['args']??null)) throw new InvalidArgumentException('Request tidak sah.');
     $result=rpc($input['fn'],$input['args']);
@@ -35,7 +36,18 @@ try {
     echo json_encode(['ok'=>false,'error'=>$safe],JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE);
 }
 function rpc(string $fn,array $a) {
+    // Workspace functions are isolated to Workspace requests only.
+    // They are never imported for DELIMa account lookup/login.
+    if (in_array($fn,[
+        'getProfilePhoto','adminSyncProfilePhotos',
+        'generatePublicAbsencePresencePdf','generateAbsencePresencePdf',
+        'generateTimeReviewPdf','generateAttendancePresenceReportPdf',
+        'generateAttendancePresenceReportSheet','generateReportSheet'
+    ],true)) require_once __DIR__.'/workspace_services.php';
     switch($fn) {
+      case 'getApiStatus':
+        // No database query, credentials, user data or session data disclosed.
+        return ['healthy'=>true,'backend'=>'PHP'];
       case 'getLoginPageData':
         $s=settings_raw();
         return ['schoolName'=>$s['SCHOOL_NAME']??'e-Keberadaan','mode'=>'delima-email-pin','pinLength'=>6,'sessionDays'=>30];
