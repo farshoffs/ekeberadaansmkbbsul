@@ -1,5 +1,5 @@
 Options -Indexes
-<FilesMatch "^(?:config\.local(?:\.example)?\.php|_lib\.php|cli_set_pin\.php|schema\.sql|README\.md)$">
+<FilesMatch "^(?:config\.local(?:\.example)?\.php|_lib\.php|cli_set_pin\.php|cli_check_db\.php|schema\.sql|README\.md)$">
   Require all denied
 </FilesMatch>
 <IfModule mod_headers.c>
