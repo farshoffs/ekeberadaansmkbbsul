@@ -175,6 +175,11 @@ function invokePagesBridgeMethod_(method, args) {
  * Authentication remains inside each existing backend function via session/PIN.
  */
 function doPost(e) {
+  // The PHP/MySQL app uses a separately signed Workspace-only channel.
+  // All original GitHub Pages/Sheets RPC traffic retains its existing path.
+  if (e && e.parameter && String(e.parameter.workspace || '') === '1') {
+    return workspaceBridgePost_(e);
+  }
   var id = '';
   var channel = '';
   var origin = '';
