@@ -51,11 +51,10 @@ async function bulkGeneratePasswords(){
 }
 function showBulkPasswordsModal(rows){
   const textRows=rows.map(r=>String(r.name||'')+'\t'+String(r.email||'')+'\t'+String(r.temporaryPin||'')).join('\n');
-  window.__ekTemporaryPins=textRows;
   showModal('<div class="bulk-password-result"><div class="first-login-badge">PIN SEMENTARA</div>'+
     '<h3>'+rows.length+' pengguna</h3><p>Setiap PIN hanya dipaparkan sekali. Simpan sementara secara selamat, kemudian serahkan secara peribadi.</p>'+
     '<div class="table-wrap compact-table"><table><thead><tr><th>Nama</th><th>Emel</th><th>PIN sementara</th></tr></thead><tbody>'+
     rows.map(r=>'<tr><td>'+esc(r.name||'')+'</td><td>'+esc(r.email||'')+'</td><td><b>'+esc(r.temporaryPin||'')+'</b></td></tr>').join('')+
-    '</tbody></table></div><p><button type="button" class="btn primary" onclick="navigator.clipboard.writeText(window.__ekTemporaryPins).then(()=>toast(\'PIN disalin\')).catch(()=>toast(\'Salin PIN secara manual\'))">Salin senarai</button></p>'+
-    '<p><button class="btn" type="button" onclick="window.__ekTemporaryPins=\'\';closeModal()">Selesai</button></p></div>');
+    '</tbody></table></div><textarea id="bulkPinCopy" readonly style="position:absolute;left:-9999px">'+esc(textRows)+'</textarea><p><button type="button" class="btn primary" onclick="navigator.clipboard.writeText(document.getElementById(\'bulkPinCopy\').value).then(()=>toast(\'PIN disalin\')).catch(()=>toast(\'Salin PIN secara manual\'))">Salin senarai</button></p>'+
+    '<p><button class="btn" type="button" onclick="closeModal()">Selesai</button></p></div>');
 }
