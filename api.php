@@ -11,6 +11,31 @@ ini_set('log_errors', '1');
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
+
+// The GitHub Pages frontend makes cross-origin JSON requests to this PHP API.
+// Whitelist only the deployed Pages origin and the existing cPanel origin.
+$ekOrigin = rtrim((string)($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
+if ($ekOrigin !== '') {
+    $requestHost = strtolower((string)parse_url($ekOrigin, PHP_URL_HOST));
+    $serverHost = strtolower((string)parse_url('https://'.($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+    $isHostingOrigin = $requestHost !== '' && $requestHost === $serverHost
+        && in_array(parse_url($ekOrigin, PHP_URL_SCHEME), array('https', 'http'), true);
+    $isPagesOrigin = $ekOrigin === 'https://farshoffs.github.io';
+    if (!$isHostingOrigin && !$isPagesOrigin) {
+        http_response_code(403);
+        echo json_encode(array('ok'=>false,'error'=>'Origin not authorized'));
+        exit;
+    }
+    header('Access-Control-Allow-Origin: '.$ekOrigin);
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Max-Age: 600');
+    header('Vary: Origin', false);
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code($ekOrigin !== '' ? 204 : 400);
+    exit;
+}
 /*
  * This diagnostic is deliberately handled BEFORE loading php/api.php,
  * _lib.php or database credentials. It must work even if an uploaded
