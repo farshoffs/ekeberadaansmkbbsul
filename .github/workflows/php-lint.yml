@@ -3,6 +3,10 @@ on:
   push:
     paths:
       - 'php/**'
+      - 'Index.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'Logo.html'
       - 'index.php'
       - 'api.php'
       - 'setup.php'
@@ -29,6 +33,8 @@ jobs:
           php -l index.php
           php -l api.php
           php -l setup.php
+          php php/tests/mysql-time-test.php
+          node --check < Scripts.html
       - name: Verify PHP frontend renders and replaces Apps Script RPC
         run: |
           set -eu
