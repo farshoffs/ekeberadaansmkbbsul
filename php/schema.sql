@@ -17,3 +17,12 @@ CREATE TABLE IF NOT EXISTS web_sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- Imported workbook contains legacy sessions/password hashes; those cannot authenticate PHP.
 -- This schema intentionally does NOT expose those records as live sessions.
+
+-- One-time browser installer lock. It remains set after first admin activation.
+CREATE TABLE IF NOT EXISTS web_setup_state (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
+  installed TINYINT(1) NOT NULL DEFAULT 0,
+  installed_at DATETIME NULL,
+  installed_by VARCHAR(128) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT IGNORE INTO web_setup_state (id, installed) VALUES (1, 0);
