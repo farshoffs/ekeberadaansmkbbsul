@@ -18,7 +18,10 @@ function runServer(fn, ...args){
       cache:'no-store',
       body:JSON.stringify({fn,args})
     }).then(async response=>{
-      const obj=await response.json().catch(()=>({ok:false,error:'Server response was not JSON'}));
+      const obj=await response.json().catch(()=>({
+        ok:false,
+        error:'Server returned HTTP '+response.status+' without JSON. Buka cPanel → Metrics → Errors (atau error_log di File Manager) untuk melihat ralat PHP sebenar.'
+      }));
       if(!response.ok || !obj.ok) throw new Error(obj.error||'Request failed');
       return obj.result;
     });
