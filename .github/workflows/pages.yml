@@ -14,22 +14,17 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: github-pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build static frontend using the same template as cPanel PHP
+      - name: Render static UI with the remote cPanel API
         env:
           EKE_PUBLIC_API_URL: https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php
         run: |
@@ -42,25 +37,40 @@ jobs:
           from pathlib import Path
           html=Path('_site/index.html').read_text('utf-8')
           assert html.lstrip().lower().startswith('<!doctype html>'), 'HTML renderer failed'
-          assert 'https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php' in html, 'Remote PHP API URL missing'
-          assert 'google.script.run' not in html, 'Legacy Google Sheets RPC leaked into Pages'
-          assert 'fetch("https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php"' in html, 'Pages API adapter missing'
-          assert 'credentials:\'omit\'' in html, 'Remote API should not use cookies'
-          assert 'config.local.php' not in html, 'Potentially sensitive host configuration reference'
+          assert 'fetch("https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php"' in html, 'Remote PHP API URL missing'
+          assert 'google.script.run' not in html, 'Original Google Sheets RPC leaked into static frontend'
+          assert "credentials:'omit'" in html, 'Remote API should never use cookies'
+          assert 'config.local.php' not in html, 'Hosting config reference unexpectedly rendered'
           html=html.replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>', 1)
           Path('_site/index.html').write_text(html,'utf-8')
-          print('GitHub Pages: static HTML verified; MySQL remains behind remote PHP API')
+          print('PASS: static GitHub Pages UI, cPanel API, no PHP files or DB credentials')
           PY
           touch _site/.nojekyll
           test "$(find _site -type f | wc -l)" = "2"
-          test ! -e _site/config.local.php
           test ! -e _site/api.php
           test ! -e _site/php
-          du -h _site/index.html
-      - uses: actions/configure-pages@v5
+      - name: Save preview HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: ekeberadaansmkbbsul-pages-html
+          path: _site/index.html
+          retention-days: 14
       - uses: actions/upload-pages-artifact@v4
         with:
           path: _site
-      - name: Deploy UI to GitHub Pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy UI
         id: deployment
         uses: actions/deploy-pages@v4
