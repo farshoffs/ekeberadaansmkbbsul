@@ -29,3 +29,11 @@ jobs:
           fi
           grep -q 'e-Keberadaan' /tmp/ekeberadaan-rendered.html
 
+
+      - name: Verify browser setup page and PIN UI syntax
+        run: |
+          set -eu
+          node --check php/pin-ui.js
+          php -l php/setup.php
+          grep -q "openChangePin" /tmp/ekeberadaan-rendered.html
+          grep -q "php/api.php" php/README.md
