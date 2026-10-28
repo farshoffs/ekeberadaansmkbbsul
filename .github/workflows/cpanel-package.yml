@@ -74,6 +74,23 @@ jobs:
           code=$(curl -sS -o /tmp/eke-probe.json -w '%{http_code}' 'http://127.0.0.1:18765/probe.php')
           test "$code" = "200"
           php -r '$x=json_decode(file_get_contents("/tmp/eke-probe.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="standalone-php")exit(1); echo "Standalone hosting diagnostic PASS\n";'
+      - name: Validate cross-origin preflight for GitHub Pages only
+        shell: bash
+        run: |
+          set -eu
+          php -S 127.0.0.1:18766 -t . > /tmp/eke-pages-cors-test.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          sleep 1
+          for path in api.php php/api.php; do
+            url="http://127.0.0.1:18766/$path"
+            allowed=$(curl -sS -D /tmp/eke-cors-headers -o /dev/null -w '%{http_code}' -X OPTIONS "$url" -H 'Origin: https://farshoffs.github.io' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')
+            test "$allowed" = "204"
+            grep -Fiq 'Access-Control-Allow-Origin: https://farshoffs.github.io' /tmp/eke-cors-headers
+            denied=$(curl -sS -o /dev/null -w '%{http_code}' -X OPTIONS "$url" -H 'Origin: https://unauthorized.example')
+            test "$denied" = "403"
+            echo "CORS preflight PASS: $path"
+          done
       - name: Package only PHP hosting runtime — leave database secrets untouched
         shell: bash
         run: |
@@ -87,19 +104,21 @@ jobs:
           cd /tmp/deploy
           zip -q -r "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip" .
           unzip -l "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip"
-      - name: Create minimal API diagnostic hotfix (only 2 files)
+      - name: Create only the two API files needed for GitHub Pages CORS
         shell: bash
         run: |
           set -eu
-          mkdir -p /tmp/hotfix
-          cp api.php probe.php /tmp/hotfix/
-          cd /tmp/hotfix
-          zip -q "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-api-diagnostic.zip" api.php probe.php
-      - name: Attach minimal diagnostic ZIP
+          mkdir -p /tmp/pages-cors/php
+          cp api.php /tmp/pages-cors/api.php
+          cp php/api.php /tmp/pages-cors/php/api.php
+          cd /tmp/pages-cors
+          zip -q -r "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-pages-cors-hotfix.zip" api.php php/api.php
+          unzip -l "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-pages-cors-hotfix.zip"
+      - name: Attach cPanel API CORS hotfix ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: ekeberadaansmkbbsul-api-diagnostic
-          path: ekeberadaansmkbbsul-api-diagnostic.zip
+          name: ekeberadaansmkbbsul-pages-cors-hotfix
+          path: ekeberadaansmkbbsul-pages-cors-hotfix.zip
           retention-days: 14
       - name: Attach cPanel ZIP
         uses: actions/upload-artifact@v4
