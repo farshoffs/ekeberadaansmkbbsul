@@ -35,6 +35,19 @@ jobs:
           php -l setup.php
           php php/tests/mysql-time-test.php
           node --check < Scripts.html
+          node --check < apps-script/97_WorkspaceBridge.gs
+          php -l php/workspace_bridge.php
+          php -l php/workspace_services.php
+          php index.php > /tmp/eke-css-check.html
+          python3 - <<'PY'
+          from pathlib import Path
+          html=Path('/tmp/eke-css-check.html').read_text()
+          style=html.split('</style>',1)
+          assert len(style)==2
+          assert not style[1].lstrip().startswith('.review-role-tag'), 'CSS leaked into body'
+          assert '<style>' in style[0]
+          print('CSS stylesheet integration PASS')
+          PY
       - name: Verify PHP frontend renders and replaces Apps Script RPC
         run: |
           set -eu
