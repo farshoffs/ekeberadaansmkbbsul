@@ -1,88 +1,51 @@
-# Deploy GitHub Pages frontend using existing cPanel MySQL
+# GitHub Pages frontend + cPanel PHP/MySQL (gh-pages branch)
 
-**Status:** The GitHub Pages static build is automated on pushes to main.
-MySQL, authentication, and Google Workspace bridge continue running only on the
-existing PHP hosting at https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php.
+**Punca asal:** GitHub Pages masih memaparkan deployment lama bertarikh 10 September 2026 yang memanggil Google Apps Script dan Google Sheets. Kod PHP/MySQL dalam `main` bukan fail yang dihidangkan kepada pelawat GitHub Pages.
 
-## Step 1: update two PHP API files on cPanel (no Terminal)
+**Pembetulan:** Workflow `.github/workflows/pages.yml` kini menghasilkan HTML statik daripada `php/index.php`, menyambungkan semua RPC kepada `https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php`, kemudian menulisnya terus ke **branch `gh-pages` pada folder root**. Branch tersebut juga mengandungi `sw.js` yang menghentikan service worker Google Sheets lama.
 
-The browser at https://farshoffs.github.io must be permitted to call the
-server at https://ppdkmy.edu.my. That requires HTTP CORS preflight support.
+## Tetapan GitHub Pages (sekali sahaja)
 
-Download the small GitHub Pages CORS ZIP from the Build cPanel upload package
-workflow's `ekeberadaansmkbbsul-pages-cors-hotfix` artifact.
+1. Buka https://github.com/farshoffs/ekeberadaansmkbbsul/settings/pages
+2. Dalam **Build and deployment > Source**, pilih **Deploy from a branch** (BUKAN GitHub Actions).
+3. Dalam **Branch**, pilih **gh-pages**, folder **/ (root)**, kemudian klik **Save**.
+4. Selepas deploy branch siap, buka https://farshoffs.github.io/ekeberadaansmkbbsul/ dan buat Ctrl+Shift+R. Jika masih kelihatan versi lama, buang data laman/service worker bagi origin farshoffs.github.io/ekeberadaansmkbbsul melalui Chrome DevTools > Application > Service Workers dan Storage.
 
-In cPanel File Manager, extract its **contents** directly to
-`public_html/ekeberadaansmkbbsul/`:
+**Nota:** Build Github Actions lama `Deploy eKeberadaan UI to GitHub Pages` berjaya pada peringkat HTML tetapi gagal pada job deploy. Workflow terkini `Publish eKeberadaan MySQL UI to gh-pages` menggunakan branch deploy sebagai kaedah yang boleh diuji dan diautomasi.
 
-- `api.php` (root public gateway)
-- `php/api.php` (existing MySQL API)
+## cPanel (kekalkan database asal)
 
-Back up those files first. **Do NOT change** `php/config.local.php`,
-`php/_lib.php`, the database, Script Properties or users' PINs. The patch
-permits only the exact GitHub Pages origin `https://farshoffs.github.io`,
-handles OPTIONS, and requires the existing PHP session token for all protected
-operations. The database password remains on the hosting server.
+- Folder hosting kekal `public_html/ekeberadaansmkbbsul/`.
+- Kekalkan `php/config.local.php`: nama database, MySQL password, PIN pepper dan Workspace bridge secret TIDAK ditempatkan di GitHub.
+- GitHub Pages hanya frontend HTML/JS/CSS. MySQL dibaca/ditulis melalui API PHP pada `https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php`.
+- Jika belum dipasang, pasang patch CORS dua fail `api.php` dan `php/api.php` di cPanel (daripada workflow **Build cPanel upload package**, artifact `ekeberadaansmkbbsul-pages-cors-hotfix`). Origin tepat `https://farshoffs.github.io` dibenarkan; operasi sensitif masih memerlukan token login yang sah.
+- Jangan import SQL semula atau reset PIN. Google Workspace (Drive, PDF, Google Sheets eksport) masih digunakan melalui PHP bridge, manakala database aplikasi sentiasa MySQL.
 
-Testing CORS from Chrome's Console on the GitHub Pages origin (when published):
+## Cara mengesahkan (Chrome DevTools)
+
+Buka GitHub Pages > F12 > Network > tekan Teruskan atau login. Pastikan panggilan XHR/Fetch menghala ke:
+
+`https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php`
+
+**BUKAN** `https://script.google.com/macros/...`.
+
+Boleh juga semak tanpa login dari Console:
 
 ```js
 fetch('https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'omit',
-  body: JSON.stringify({ fn:'getApiStatus', args:[] })
-}).then(async r => console.log(r.status, await r.text())).catch(console.error);
+  method:'POST',
+  credentials:'omit',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({fn:'getApiStatus',args:[]})
+}).then(async r=>console.log(r.status,await r.text())).catch(console.error);
 ```
 
-Expected: HTTP 200 with `healthy:true`. If blocked, inspect the OPTIONS
-request in DevTools Network; do not share tokens or database credentials.
+Respons yang diharapkan: HTTP 200 dan `healthy:true`. Jika CORS gagal, kemas kini patch PHP pada cPanel. Ini tidak mendedahkan data peribadi atau kunci database.
 
-## Step 2: enable GitHub Pages
+## Latar keselamatan
 
-Go to https://github.com/farshoffs/ekeberadaansmkbbsul/settings/pages
-
-Set **Build and deployment -> Source -> GitHub Actions**. GitHub Actions
-must have permission to deploy Pages (environment `github-pages`).
-
-The workflow is `.github/workflows/pages.yml`, named
-**Deploy eKeberadaan UI to GitHub Pages**. Go to the Actions tab, select
-that workflow and use **Run workflow** with branch main after enabling Pages.
-The build job generates a single static `index.html`, no PHP source or SQL.
-The deploy job publishes it.
-
-Expected public URL:
-https://farshoffs.github.io/ekeberadaansmkbbsul/
-
-Important: GitHub Pages does not execute PHP, connect to MySQL directly or
-store database credentials. The static frontend communicates over HTTPS to
-the existing PHP server. Login/PIN validation happens only on PHP/MySQL.
-
-## Step 3: verify functionality
-
-1. Load the GitHub Pages URL; press Ctrl+Shift+R.
-2. Sign in using the **same existing DELIMa email and PIN**. A fresh login
-   may be required because browser session storage is origin-specific; no
-   reset or re-registration is required.
-3. Confirm your punch card history and current attendance match the PHP-hosted
-   version. Punches write to the same MySQL database.
-4. Verify Google Workspace photos and export through the existing PHP bridge.
-5. Keep the cPanel frontend available as a fallback until GitHub Pages
-   login, GPS and reporting have been tested.
-
-## Security / maintenance
-
-- Never commit `php/config.local.php`, SQL dumps, PIN peppers, Workspace
-  HMAC secrets, logs or staff records.
-- CORS only whitelists a frontend origin; it is NOT authorization. Existing
-  PHP access control and token validation are still mandatory.
-- The static build adds noindex/nofollow. The GitHub repository itself remains
-  public: don't commit private data in source or Actions logs.
-- GitHub Pages and PHP hosting have different browser origins. Previously
-  remembered sessions on ppdkmy.edu.my cannot be silently copied to
-  farshoffs.github.io.
-- The saved PHP version on cPanel will not update just because a GitHub
-  repository commit changes. Only the static frontend auto-deploys to Pages.
-- If changing the username, Pages domain or API domain, update both the
-  endpoint in `pages.yml`/`php/index.php` and the exact allowlisted
-  origin in both PHP API files, followed by a cPanel deployment.
+- PIN dan data MySQL hanya di pelayan PHP.
+- SessionStorage di GitHub Pages berbeza daripada domain cPanel; login semula sekali menggunakan PIN lama mungkin diperlukan.
+- Workflow membina index HTML dari kod GitHub `main`, menerbitkan `gh-pages`. Branch `gh-pages` mengandungi aset lama yang tidak digunakan, tetapi index baharu tidak memanggil `gas-shim`.
+- Service worker lama `eke-static-*` ditamatkan dan cachenya dipadam. PWA lama mungkin perlu dipadamkan secara manual pada telefon jika dipasang sebagai aplikasi.
+- Jangan upload dump SQL, `php/config.local.php`, PIN pepper, Workspace bridge secret atau fail logs ke GitHub.
