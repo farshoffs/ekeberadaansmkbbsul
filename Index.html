@@ -180,7 +180,7 @@
             <div class="pc-table-wrap"><table class="pc-table"><thead><tr><th rowspan="2" class="pc-date-col">TAR.</th><th colspan="2">SESI 1</th><th colspan="2">SESI 2</th><th rowspan="2" class="pc-note-col">KENYATAAN</th><th rowspan="2" class="pc-sign-col">TT<br>KETUA</th></tr><tr><th>MASUK</th><th>KELUAR</th><th>MASUK</th><th>KELUAR</th></tr></thead><tbody id="myCardRows"></tbody></table></div>
             <div class="pc-warning"><strong>AMARAN</strong><p>Pegawai / Kakitangan yang menolong mencatitkan waktu kad seseorang Pegawai / Kakitangan lain adalah tidak dibenarkan.</p></div>
           </section>
-          <div class="pc-legend"><span><i class="legend-dot hadir"></i> Hadir</span><span><i class="legend-dot lewat"></i> Lewat</span><span><i class="legend-dot absent"></i> Tidak hadir</span></div>
+          <div class="pc-legend"><span><i class="legend-dot hadir"></i> Hadir</span><span><i class="legend-dot lewat"></i> Lewat / Balik Awal — waktu berkenaan merah</span><span><i class="legend-dot absent"></i> Tidak hadir</span></div>
         </section>
 
         <!-- TIDAK HADIR / KEBERADAAN REQUEST -->
@@ -198,7 +198,7 @@
               <label>Tarikh akhir<input id="absenceEndDate" name="endDate" type="date" required></label>
               <label id="absenceStartTimeWrap" class="hidden">Masa mula<input id="absenceStartTime" name="startTime" type="time"></label>
               <label id="absenceEndTimeWrap" class="hidden">Masa akhir<input id="absenceEndTime" name="endTime" type="time"></label>
-              <label class="span-2 absence-note-field">Catatan / tujuan<textarea id="absenceNote" name="note" rows="6" placeholder="Catatan tambahan jika perlu"></textarea></label>
+              <label class="span-2 absence-note-field">Catatan / tujuan <small>(Sila isi tajuk aktiviti yang terlibat)</small><textarea id="absenceNote" name="note" rows="6" placeholder="Contoh: Kejohanan Merentas Desa Daerah / Bengkel PPD"></textarea></label>
               <div class="span-2"><button class="btn primary" type="submit">Hantar Permohonan</button></div>
             </form>
             <p class="tiny">Keberadaan bermaksud hadir di sekolah tetapi tidak tersedia untuk kelas/ganti dalam tempoh masa yang dipilih.</p>
@@ -223,7 +223,7 @@
               <label class="search-box span-search">Cari<input id="absencePublicSearch" type="search" placeholder="Nama, jawatan, kategori, jenis..." oninput="applyAbsencePublicFilters()"></label>
               <label>Mod<select id="absencePublicMode" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option value="TIDAK_HADIR">Tidak Hadir</option><option value="KEBERADAAN">Keberadaan</option></select></label>
               <label>Status<select id="absencePublicStatus" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option>MENUNGGU</option><option>DILULUSKAN</option><option>TIDAK MOHON</option></select></label>
-              <label>Kategori<select id="absencePublicCategory" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+              <label>Kategori<select id="absencePublicCategory" onchange="applyAbsencePublicFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label><label>Susun<select id="absencePublicSort" onchange="applyAbsencePublicFilters()"><option value="date_desc">Tarikh terbaru</option><option value="date_asc">Tarikh terlama</option><option value="name_asc">Nama A–Z</option><option value="name_desc">Nama Z–A</option><option value="status_asc">Status A–Z</option></select></label>
               <div class="filter-count" id="absencePublicCount">0 rekod</div>
             </div>
             <div id="absencePublicSummary" class="summary-grid absence-public-summary"></div>
@@ -243,10 +243,10 @@
               <label class="search-box span-search">Cari<input id="absenceManageSearch" type="search" placeholder="Nama, jawatan, emel, jenis..." oninput="applyAbsenceManageFilters()"></label>
               <label>Mod<select id="absenceManageMode" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option value="TIDAK_HADIR">Tidak Hadir</option><option value="KEBERADAAN">Keberadaan</option></select></label>
               <label>Status<select id="absenceManageStatus" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option>MENUNGGU</option><option>DILULUSKAN</option><option>DITOLAK</option><option>DIBATALKAN</option><option>TIDAK MOHON</option></select></label>
-              <label>Kategori<select id="absenceManageCategory" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
+              <label>Kategori<select id="absenceManageCategory" onchange="applyAbsenceManageFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label><label>Susun<select id="absenceManageSort" onchange="applyAbsenceManageFilters()"><option value="date_desc">Tarikh terbaru</option><option value="date_asc">Tarikh terlama</option><option value="name_asc">Nama A–Z</option><option value="name_desc">Nama Z–A</option><option value="status_asc">Status A–Z</option></select></label>
               <div class="filter-count" id="absenceManageCount">0 rekod</div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Mod</th><th>Jenis</th><th>Tempoh / Masa</th><th>Catatan</th><th>Status</th><th>Semakan</th></tr></thead><tbody id="absenceManageRows"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Mod</th><th>Jenis</th><th>Tempoh / Masa</th><th>Catatan</th><th>Status</th><th>Tindakan / Pelulus</th></tr></thead><tbody id="absenceManageRows"></tbody></table></div>
           </section>
         </section>
 
@@ -260,7 +260,7 @@
               <label>Tarikh akhir<input id="timeReviewTo" type="date" onchange="loadTimeReview(true)"></label>
               <label class="search-box span-search">Cari<input id="timeReviewSearch" type="search" placeholder="Nama, jawatan, emel..." oninput="applyTimeReviewFilters()"></label>
               <label>Jenis<select id="timeReviewType" onchange="applyTimeReviewFilters()"><option value="">Semua</option><option>LEWAT</option><option>BALIK AWAL</option></select></label>
-              <label>Status<select id="timeReviewStatus" onchange="applyTimeReviewFilters()"><option value="">Semua</option><option>BELUM DIAMBIL MAKLUM</option><option>DIAMBIL MAKLUM</option><option>DITOLAK</option></select></label>
+              <label>Status<select id="timeReviewStatus" onchange="applyTimeReviewFilters()"><option value="">Semua</option><option>BELUM DIAMBIL MAKLUM</option><option>DIAMBIL MAKLUM</option><option>DITOLAK</option></select></label><label>Susun<select id="timeReviewSort" onchange="applyTimeReviewFilters()"><option value="date_desc">Tarikh terbaru</option><option value="date_asc">Tarikh terlama</option><option value="name_asc">Nama A–Z</option><option value="name_desc">Nama Z–A</option><option value="status_asc">Status A–Z</option></select></label>
               <div class="filter-count" id="timeReviewCount">0 rekod</div>
             </div>
             <div class="table-wrap"><table><thead><tr><th>Pegawai</th><th>Tarikh</th><th>Jenis</th><th>Sesi</th><th>Waktu</th><th>Rujukan</th><th>Status</th><th>Tindakan / Pelulus</th></tr></thead><tbody id="timeReviewRows"></tbody></table></div>
@@ -298,7 +298,7 @@
                 <label class="search-box span-search">Carian dinamik<input id="reportSearch" type="search" placeholder="Nama, emel, kategori, status, sumber, sebab, IP..." oninput="applyReportFilters()"></label>
                 <label>Kategori<select id="reportCategoryFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
                 <label>Status<select id="reportStatusFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>HADIR</option><option>LEWAT</option><option>BALIK AWAL</option><option>TIDAK HADIR</option><option>BELUM HADIR</option></select></label>
-                <label>Sumber<select id="reportSourceFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>GPS</option><option>TEST</option><option>ADMIN</option><option>TIDAK_HADIR</option></select></label>
+                <label>Sumber<select id="reportSourceFilter" onchange="applyReportFilters()"><option value="">Semua</option><option>GPS</option><option>TEST</option><option>ADMIN</option><option>TIDAK_HADIR</option></select></label><label>Susun<select id="reportSort" onchange="applyReportFilters()"><option value="name_asc">Nama A–Z</option><option value="name_desc">Nama Z–A</option><option value="status_asc">Status A–Z</option><option value="in_asc">Masuk terawal</option><option value="in_desc">Masuk terlewat</option></select></label>
                 <div class="filter-count" id="reportFilterCount">0 rekod</div>
               </div>
               <div class="table-wrap"><table><thead><tr><th>Nama</th><th>Jawatan / Kategori</th><th>Status</th><th>Masuk 1</th><th>Keluar 1</th><th>Masuk 2</th><th>Keluar 2</th><th>Sumber / Sebab</th><th>IP / Semakan</th><th>Tindakan</th></tr></thead><tbody id="reportRows"></tbody></table></div>
@@ -311,7 +311,7 @@
                 <label>Kategori<select id="userCategoryFilter" onchange="applyUserFilters()"><option value="">Semua</option><option>Pengurusan</option><option>PPP</option><option>AKP</option></select></label>
                 <label>Akaun<select id="userActiveFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="active">Aktif</option><option value="inactive">Tidak aktif</option></select></label>
                 <label>Admin<select id="userAdminFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="yes">Pentadbir Sistem</option><option value="no">Bukan Admin</option></select></label>
-                <label>PIN<select id="userPasswordFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="ready">Sedia</option><option value="temp">Perlu tetapkan semula</option><option value="unset">Belum ditetapkan</option><option value="locked">Dikunci</option></select></label>
+                <label>PIN<select id="userPasswordFilter" onchange="applyUserFilters()"><option value="">Semua</option><option value="ready">Sedia</option><option value="temp">Perlu tetapkan semula</option><option value="unset">Belum ditetapkan</option><option value="locked">Dikunci</option></select></label><label>Susun<select id="userSort" onchange="applyUserFilters()"><option value="name_asc">Nama A–Z</option><option value="name_desc">Nama Z–A</option><option value="category_asc">Kategori A–Z</option><option value="active_first">Aktif dahulu</option></select></label>
                 <div class="filter-count" id="userFilterCount">0 pengguna</div>
               </div>
               <div class="table-wrap"><table><thead><tr><th class="select-col"><input id="selectAllUsers" type="checkbox" onchange="toggleSelectAllUsers(this.checked)" title="Pilih semua yang sedang dipaparkan"></th><th>Aktif</th><th>Nama / Jawatan</th><th>Emel</th><th>Kategori</th><th>Pentadbir Sistem</th><th>PIN</th><th>Waktu Sesi / Catatan</th><th>Tindakan</th></tr></thead><tbody id="userRows"></tbody></table></div>
@@ -331,14 +331,14 @@
                   <div id="locationPickerMap" class="location-picker-map"></div>
                   <div class="map-coord-readout"><span>Pusat: <b id="mapCoordReadout">—</b></span><span>Radius: <b id="mapRadiusReadout">—</b></span></div>
                 </div>
-                <label>Sesi 1 · Waktu Masuk<input name="defaultS1In" type="time" required><small>Selepas waktu ini = LEWAT, tetapi rekod tetap diterima.</small></label>
+                <label>Sesi 1 · Waktu Masuk<input name="defaultS1In" type="time" required><small>Selepas waktu ini = LEWAT, selagi masih dalam had akhir masuk.</small></label><label>Had akhir Rekod Masuk Sesi 1<input name="defaultMaxPunchIn" type="time" required><small>Selepas waktu ini, Rekod Masuk Sesi 1 ditolak.</small></label>
                 <label>Sesi 1 · Waktu Keluar<input name="defaultS1Out" type="time" required><small>Sebelum waktu ini = BALIK AWAL, tetapi rekod tetap diterima.</small></label>
                 <label>Sesi 2 · Waktu Masuk<input name="defaultS2In" type="time"><small>Opsyenal. Jika kosong, hanya Sesi 1 digunakan.</small></label>
-                <label>Sesi 2 · Waktu Keluar<input name="defaultS2Out" type="time"><small>Opsyenal. Isi bersama Waktu Masuk Sesi 2 untuk mengaktifkan 4 rakaman sehari.</small></label>
+                <label>Sesi 2 · Waktu Keluar<input name="defaultS2Out" type="time"><small>Opsyenal. Jika diisi, menjadi rujukan BALIK AWAL Sesi 2.</small></label><label>Pasangan Sesi 2 opsyenal<select name="allowOptionalSecondSession"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select><small>Aktif: selepas Masuk → Balik Sesi 1, pengguna boleh rekod Masuk → Balik Sesi 2 jika ada.</small></label>
                 <label>Tak hadir selepas<input name="absentAfter" type="time" required></label>
                 <label>Peringatan Rekod Waktu Masuk<select name="punchReminderEnabled"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select></label>
                 <label>Waktu peringatan<input name="punchReminderTime" type="time" required></label>
-                <label class="span-2">Hari bekerja<input name="workingDays" placeholder="SUN,MON,TUE,WED,THU" required><small>Gunakan kod SUN, MON, TUE, WED, THU, FRI, SAT. Default Kedah: SUN–THU.</small></label>
+                <label class="span-2">Hari bekerja<input name="workingDays" placeholder="SUN,MON,TUE,WED,THU" required><small>Gunakan kod SUN, MON, TUE, WED, THU, FRI, SAT. Default Kedah: SUN–THU.</small></label><div class="span-2 setting-subsection"><b>WBF Khamis — AKP & Pengetua</b><small>Jika masa Masuk Sesi 1 berada dalam julat WBF, rujukan Balik Awal dikira daripada masa masuk + tempoh WBF.</small></div><label>WBF Khamis<select name="thursdayWbfEnabled"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select></label><label>Tempoh WBF (minit)<input name="thursdayWbfDurationMinutes" type="number" min="1" max="1440" required></label><label>Masuk WBF mula<input name="thursdayWbfInFrom" type="time" required></label><label>Masuk WBF akhir<input name="thursdayWbfInTo" type="time" required></label><label>Pulang WBF mula<input name="thursdayWbfOutFrom" type="time" required></label><label>Pulang WBF akhir<input name="thursdayWbfOutTo" type="time" required></label>
                 <label>Rekod IP awam<select name="ipTrackingEnabled"><option value="TRUE">Aktif</option><option value="FALSE">Tidak aktif</option></select></label>
                 <label>Polisi IP ketika rakam waktu<select name="ipPunchPolicy"><option value="WARN">AMARAN — rekod tetapi benarkan</option><option value="BLOCK">SEKAT — tolak IP sama</option><option value="OFF">OFF — rekod sahaja</option></select></label>
                 <div class="span-2 setting-hint ip-policy-hint"><b>Semakan IP satu jam:</b> jika IP awam yang sama digunakan oleh akaun lain dalam jam yang sama, AMARAN akan merekodkan pertindihan tetapi rekod diterima. SEKAT akan menolak rakaman waktu. Untuk Wi‑Fi sekolah/shared network, AMARAN lebih sesuai kerana ramai peranti boleh berkongsi satu IP awam.</div>

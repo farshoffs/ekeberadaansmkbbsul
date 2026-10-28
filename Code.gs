@@ -12,8 +12,8 @@ const EK = Object.freeze({
     TRUSTED_DEVICES: 'SESI_PERANTI'
   },
   CATEGORIES: ['Pengurusan', 'AKP', 'PPP'],
-  ABSENCE_TYPES: ['CUTI REHAT KHAS', 'CUTI REHAT', 'CUTI SAKIT (AWAM)', 'CUTI SAKIT (SWASTA)', 'CUTI TANPA REKOD KELOMPOK', 'KURSUS', 'BENGKEL', 'TAKLIMAT', 'MESYUARAT', 'SEMINAR', 'LAIN-LAIN'],
-  PRESENCE_TYPES: ['PROGRAM DALAMAN SEKOLAH - KEBERADAAN', 'URUSAN PERIBADI (MASUK LEWAT) - KEBERADAAN', 'MESYUARAT DALAM SEKOLAH - KEBERADAAN', 'LAIN-LAIN - KEBERADAAN'],
+  ABSENCE_TYPES: ['CUTI REHAT KHAS', 'CUTI REHAT', 'CUTI SAKIT (AWAM)', 'CUTI SAKIT (SWASTA)', 'CUTI TANPA REKOD KELOMPOK', 'KURSUS', 'BENGKEL', 'TAKLIMAT', 'MESYUARAT', 'SEMINAR', 'AKTIVITI KOKURIKULUM', 'AKTIVITI SUKAN/PERMAINAN', 'LAIN-LAIN'],
+  PRESENCE_TYPES: ['PROGRAM DALAMAN SEKOLAH - KEBERADAAN', 'URUSAN PERIBADI (MASUK LEWAT) - KEBERADAAN', 'MESYUARAT DALAM SEKOLAH - KEBERADAAN', 'BENGKEL/KURSUS/SEMINAR (PPD)', 'BENGKEL/KURSUS/SEMINAR (JPN)', 'BENGKEL/KURSUS/SEMINAR (KPM)', 'MESYUARAT/TAKLIMAT (PPD)', 'MESYUARAT/TAKLIMAT (JPN)', 'MESYUARAT/TAKLIMAT (KPM)', 'LAIN-LAIN - KEBERADAAN'],
   USER_HEADERS: ['Aktif', 'Nama', 'Emel', 'Kategori', 'Pentadbir', 'WaktuLewat', 'MaksMasuk', 'WaktuBalik', 'Catatan', 'PasswordSalt', 'PasswordHash', 'WajibTukarPassword', 'VersiSesi', 'GagalLogin', 'DikunciSehingga', 'PasswordDikemaskiniPada', 'FotoProfilFileId', 'FotoProfilDikemaskiniPada', 'AuthType', 'Jawatan', 'Sesi1Masuk', 'Sesi1Keluar', 'Sesi2Masuk', 'Sesi2Keluar'],
   ATT_HEADERS: ['Tarikh', 'Emel', 'Nama', 'Kategori', 'Masuk', 'MasukLat', 'MasukLng', 'MasukJarakM', 'MasukAkurasiM', 'Balik', 'BalikLat', 'BalikLng', 'BalikJarakM', 'BalikAkurasiM', 'Status', 'Sumber', 'DisuntingOleh', 'SebabEdit', 'DikemaskiniPada', 'MasukIP', 'BalikIP', 'IPSemakan', 'Masuk2', 'Masuk2Lat', 'Masuk2Lng', 'Masuk2JarakM', 'Masuk2AkurasiM', 'Balik2', 'Balik2Lat', 'Balik2Lng', 'Balik2JarakM', 'Balik2AkurasiM', 'Masuk2IP', 'Balik2IP', 'StatusWaktu'],
   AUDIT_HEADERS: ['Masa', 'Pelaku', 'Tindakan', 'Sasaran', 'Butiran'],
@@ -34,6 +34,13 @@ const EK = Object.freeze({
     DEFAULT_S1_OUT: '14:00',
     DEFAULT_S2_IN: '',
     DEFAULT_S2_OUT: '',
+    ALLOW_OPTIONAL_SECOND_SESSION: 'TRUE',
+    THURSDAY_WBF_ENABLED: 'TRUE',
+    THURSDAY_WBF_IN_FROM: '07:30',
+    THURSDAY_WBF_IN_TO: '09:00',
+    THURSDAY_WBF_OUT_FROM: '15:00',
+    THURSDAY_WBF_OUT_TO: '16:30',
+    THURSDAY_WBF_DURATION_MINUTES: '450',
     ABSENT_AFTER: '10:00',
     PUNCH_REMINDER_ENABLED: 'TRUE',
     PUNCH_REMINDER_TIME: '09:00',
@@ -473,6 +480,8 @@ function buildBootstrap_(user) {
   const today = todayKey_();
   const rec = findAttendanceRecord_(today, user.email);
   const effective = getEffectiveSchedule_(user, settings);
+  const displaySchedule = Object.assign({}, effective);
+  if (rec) displaySchedule.s1Out = getPunchReferenceTime_('OUT',1,effective,user,settings,today,rec.values) || effective.s1Out;
   let locationReady = true;
   if (String(settings.SYSTEM_MODE || 'REAL').toUpperCase() !== 'TEST') {
     try { validateLocationSettings_(settings); } catch (e) { locationReady = false; }
@@ -482,7 +491,7 @@ function buildBootstrap_(user) {
     today,
     now: formatDateTime_(new Date()),
     user: Object.assign(publicUser_(user), {canManageAbsence: isManagementUser_(user)}),
-    schedule: effective,
+    schedule: displaySchedule,
     settings: publicSettings_(settings),
     locationReady,
     attendance: rec ? publicAttendance_(rec, effective) : null
@@ -1320,6 +1329,7 @@ function buildPunchCardMonthForUser_(user, monthKey) {
   records.forEach(r => {
     const dayReviews = reviewRows.filter(x => x.date === r.date);
     r.reviewState = timeReviewStatementForCard_(dayReviews, r.statusFlags || []);
+    r.reviewItems = dayReviews.map(x => ({type:x.type,session:Number(x.session||1),reviewStatus:x.reviewStatus||'',reviewerJobTitle:getReviewerJobTitleFromEmail_(x.reviewedBy),reviewedAt:x.reviewedAt?formatDateTime_(x.reviewedAt):'',comment:x.comment||''}));
   });
   records.sort((a,b) => a.day - b.day);
   return {
@@ -1377,9 +1387,11 @@ function punch(token, type, location, clientInfo) {
 
     const ipCheck = evaluatePunchIp_(user, type, recordIp, now, settings, isTestMode, todayRows);
     const session = step.session;
-    const refTime = type === 'IN'
-      ? (session === 1 ? schedule.s1In : schedule.s2In)
-      : (session === 1 ? schedule.s1Out : schedule.s2Out);
+    const refTime = getPunchReferenceTime_(type,session,schedule,user,settings,dateKey,values);
+    if (!isTestMode && type === 'IN') {
+      const latestAllowed = session === 1 ? schedule.maxPunchIn : (schedule.s2Out || '');
+      if (latestAllowed && nowMinutes > timeToMinutes_(latestAllowed)) throw new Error(`Tempoh Rekod Waktu Masuk Sesi ${session} telah tamat pada ${latestAllowed}.`);
+    }
     let exceptionType = '';
     if (!isTestMode && refTime) {
       const refMinutes = timeToMinutes_(refTime);
@@ -1633,12 +1645,19 @@ function adminSaveSettings(token, payload) {
     MAX_GPS_ACCURACY_M: String(Number(payload.maxGpsAccuracyM || 120)),
     // Legacy keys are mirrored from Sesi 1 for backwards compatibility.
     DEFAULT_LATE_AFTER: normalizeTime_(payload.defaultS1In || payload.defaultLateAfter),
-    DEFAULT_MAX_PUNCH_IN: '23:59',
+    DEFAULT_MAX_PUNCH_IN: normalizeTime_(payload.defaultMaxPunchIn || currentSettings.DEFAULT_MAX_PUNCH_IN || '10:00'),
     DEFAULT_PUNCH_OUT_FROM: normalizeTime_(payload.defaultS1Out || payload.defaultPunchOutFrom),
     DEFAULT_S1_IN: normalizeTime_(payload.defaultS1In || payload.defaultLateAfter),
     DEFAULT_S1_OUT: normalizeTime_(payload.defaultS1Out || payload.defaultPunchOutFrom),
     DEFAULT_S2_IN: normalizeOptionalTime_(payload.defaultS2In),
     DEFAULT_S2_OUT: normalizeOptionalTime_(payload.defaultS2Out),
+    ALLOW_OPTIONAL_SECOND_SESSION: String(payload.allowOptionalSecondSession || currentSettings.ALLOW_OPTIONAL_SECOND_SESSION || 'TRUE').toUpperCase() === 'FALSE' ? 'FALSE' : 'TRUE',
+    THURSDAY_WBF_ENABLED: String(payload.thursdayWbfEnabled || currentSettings.THURSDAY_WBF_ENABLED || 'TRUE').toUpperCase() === 'FALSE' ? 'FALSE' : 'TRUE',
+    THURSDAY_WBF_IN_FROM: normalizeTime_(payload.thursdayWbfInFrom || currentSettings.THURSDAY_WBF_IN_FROM || '07:30'),
+    THURSDAY_WBF_IN_TO: normalizeTime_(payload.thursdayWbfInTo || currentSettings.THURSDAY_WBF_IN_TO || '09:00'),
+    THURSDAY_WBF_OUT_FROM: normalizeTime_(payload.thursdayWbfOutFrom || currentSettings.THURSDAY_WBF_OUT_FROM || '15:00'),
+    THURSDAY_WBF_OUT_TO: normalizeTime_(payload.thursdayWbfOutTo || currentSettings.THURSDAY_WBF_OUT_TO || '16:30'),
+    THURSDAY_WBF_DURATION_MINUTES: String(Math.max(1, Math.min(1440, Number(payload.thursdayWbfDurationMinutes || currentSettings.THURSDAY_WBF_DURATION_MINUTES || 450)))),
     ABSENT_AFTER: normalizeTime_(payload.absentAfter),
     PUNCH_REMINDER_ENABLED: String(payload.punchReminderEnabled || 'TRUE').toUpperCase() === 'FALSE' ? 'FALSE' : 'TRUE',
     PUNCH_REMINDER_TIME: normalizeTime_(payload.punchReminderTime || '09:00'),
@@ -1658,6 +1677,8 @@ function adminSaveSettings(token, payload) {
   if (!(Number(next.RADIUS_M) > 0 && Number(next.RADIUS_M) <= 5000)) throw new Error('Radius mesti antara 1 hingga 5000 meter.');
   if (!(Number(next.MAX_GPS_ACCURACY_M) > 0 && Number(next.MAX_GPS_ACCURACY_M) <= 2000)) throw new Error('Had ketepatan GPS tidak sah.');
   if (next.DEFAULT_S2_OUT && !next.DEFAULT_S2_IN) throw new Error('Tetapkan Sesi 2 Masuk sebelum Sesi 2 Keluar.');
+  if (timeToMinutes_(next.THURSDAY_WBF_IN_TO) <= timeToMinutes_(next.THURSDAY_WBF_IN_FROM)) throw new Error('Julat WBF Khamis: waktu masuk akhir mesti selepas waktu masuk mula.');
+  if (timeToMinutes_(next.THURSDAY_WBF_OUT_TO) <= timeToMinutes_(next.THURSDAY_WBF_OUT_FROM)) throw new Error('Julat WBF Khamis: waktu pulang akhir mesti selepas waktu pulang mula.');
 
   const sh = getSheetOrThrow_(EK.SHEETS.SETTINGS);
   const existingRows = sh.getLastRow() >= 2 ? sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues() : [];
@@ -2074,14 +2095,34 @@ function getEffectiveSchedule_(user, settings) {
   const s1Out = user.s1Out || user.punchOutFrom || settings.DEFAULT_S1_OUT || settings.DEFAULT_PUNCH_OUT_FROM;
   const s2In = user.s2In || settings.DEFAULT_S2_IN || '';
   const s2Out = user.s2Out || settings.DEFAULT_S2_OUT || '';
-  return {
-    s1In, s1Out, s2In, s2Out,
-    // Compatibility keys for older client code / existing reports. There is no
-    // longer a hard 'masuk ditutup' or 'balik dibenarkan mulai' restriction.
-    lateAfter: s1In,
-    maxPunchIn: '',
-    punchOutFrom: s1Out
-  };
+  const maxPunchIn = user.maxPunchIn || settings.DEFAULT_MAX_PUNCH_IN || '10:00';
+  const allowSecondSession = String(settings.ALLOW_OPTIONAL_SECOND_SESSION || 'TRUE').toUpperCase() !== 'FALSE';
+  return {s1In,s1Out,s2In,s2Out,maxPunchIn,allowSecondSession,lateAfter:s1In,punchOutFrom:s1Out};
+}
+
+function minutesToTime_(minutes) {
+  minutes = Math.max(0, Math.min(1439, Math.round(Number(minutes) || 0)));
+  return `${String(Math.floor(minutes / 60)).padStart(2,'0')}:${String(minutes % 60).padStart(2,'0')}`;
+}
+function isThursdayWbfUser_(user) {
+  return !!user && (String(user.category||'').trim().toUpperCase()==='AKP' || /PENGETUA/i.test(String(user.jobTitle||'')));
+}
+function getThursdayWbfOutReference_(user,settings,dateKey,values) {
+  if (!isThursdayWbfUser_(user) || String(settings.THURSDAY_WBF_ENABLED||'TRUE').toUpperCase()==='FALSE') return '';
+  if (new Date(`${dateKey}T12:00:00+08:00`).getDay() !== 4) return '';
+  const v=padAttendanceValues_(values||[]); if(!v[4]) return '';
+  const inM=timeToMinutes_(formatTime_(v[4]));
+  const from=timeToMinutes_(settings.THURSDAY_WBF_IN_FROM||'07:30'), to=timeToMinutes_(settings.THURSDAY_WBF_IN_TO||'09:00');
+  if(![inM,from,to].every(Number.isFinite)||inM<from||inM>to) return '';
+  const expected=inM+Math.max(1,Number(settings.THURSDAY_WBF_DURATION_MINUTES||450));
+  const outFrom=timeToMinutes_(settings.THURSDAY_WBF_OUT_FROM||'15:00'), outTo=timeToMinutes_(settings.THURSDAY_WBF_OUT_TO||'16:30');
+  if(![expected,outFrom,outTo].every(Number.isFinite)||expected<outFrom||expected>outTo) return '';
+  return minutesToTime_(expected);
+}
+function getPunchReferenceTime_(type,session,schedule,user,settings,dateKey,values) {
+  if(type==='OUT'&&Number(session)===1){const wbf=getThursdayWbfOutReference_(user,settings,dateKey,values);if(wbf)return wbf;}
+  if(type==='IN')return Number(session)===1?schedule.s1In:schedule.s2In;
+  return Number(session)===1?schedule.s1Out:schedule.s2Out;
 }
 
 // ---------- Attendance data ----------
@@ -2386,17 +2427,14 @@ function padAttendanceValues_(values) {
 }
 
 function nextAttendanceStep_(values, schedule) {
-  const v = padAttendanceValues_(values);
-  if (!v[4]) return {type:'IN', session:1, complete:false};
-  if (!v[9]) return {type:'OUT', session:1, complete:false};
-  // Sesi 2 hanya diwajibkan apabila sekurang-kurangnya satu waktu Sesi 2
-  // ditetapkan. Ini membolehkan sekolah menggunakan sama ada 2 atau 4 rakaman
-  // sehari tanpa mengubah struktur Kad Perakam Waktu.
-  const hasSession2 = !!(schedule && (schedule.s2In || schedule.s2Out));
-  if (!hasSession2) return {type:'', session:1, complete:true};
-  if (!v[22]) return {type:'IN', session:2, complete:false};
-  if (!v[27]) return {type:'OUT', session:2, complete:false};
-  return {type:'', session:2, complete:true};
+  const v=padAttendanceValues_(values);
+  if(!v[4]) return {type:'IN',session:1,complete:false};
+  if(!v[9]) return {type:'OUT',session:1,complete:false};
+  const hasSession2=!!(schedule&&(schedule.allowSecondSession||schedule.s2In||schedule.s2Out));
+  if(!hasSession2) return {type:'',session:1,complete:true};
+  if(!v[22]) return {type:'IN',session:2,complete:false,optional:true};
+  if(!v[27]) return {type:'OUT',session:2,complete:false};
+  return {type:'',session:2,complete:true};
 }
 
 function splitAttendanceFlags_(value) {
@@ -2702,6 +2740,13 @@ function publicSettings_(s) {
     defaultS1Out: s.DEFAULT_S1_OUT || s.DEFAULT_PUNCH_OUT_FROM,
     defaultS2In: s.DEFAULT_S2_IN || '',
     defaultS2Out: s.DEFAULT_S2_OUT || '',
+    allowOptionalSecondSession: String(s.ALLOW_OPTIONAL_SECOND_SESSION || 'TRUE').toUpperCase() !== 'FALSE' ? 'TRUE' : 'FALSE',
+    thursdayWbfEnabled: String(s.THURSDAY_WBF_ENABLED || 'TRUE').toUpperCase() !== 'FALSE' ? 'TRUE' : 'FALSE',
+    thursdayWbfInFrom: s.THURSDAY_WBF_IN_FROM || '07:30',
+    thursdayWbfInTo: s.THURSDAY_WBF_IN_TO || '09:00',
+    thursdayWbfOutFrom: s.THURSDAY_WBF_OUT_FROM || '15:00',
+    thursdayWbfOutTo: s.THURSDAY_WBF_OUT_TO || '16:30',
+    thursdayWbfDurationMinutes: Number(s.THURSDAY_WBF_DURATION_MINUTES || 450),
     absentAfter: s.ABSENT_AFTER,
     punchReminderEnabled: String(s.PUNCH_REMINDER_ENABLED || 'TRUE').toUpperCase() !== 'FALSE' ? 'TRUE' : 'FALSE',
     punchReminderTime: s.PUNCH_REMINDER_TIME || '09:00',
@@ -3747,7 +3792,7 @@ function readTimeReviewRows_() {
 
 function publicTimeReview_(r) {
   return {id:r.id,date:r.date,email:r.email,name:r.name,jobTitle:r.jobTitle||'',category:r.category,type:r.type,session:r.session,recordTime:r.recordTime,referenceTime:r.referenceTime,
-    reviewStatus:r.reviewStatus||'BELUM DIAMBIL MAKLUM',reviewedBy:r.reviewedBy||'',reviewerName:r.reviewerName||'',reviewedAt:r.reviewedAt?formatDateTime_(r.reviewedAt):'',comment:r.comment||'',createdAt:r.createdAt?formatDateTime_(r.createdAt):''};
+    reviewStatus:r.reviewStatus||'BELUM DIAMBIL MAKLUM',reviewerJobTitle:getReviewerJobTitleFromEmail_(r.reviewedBy),reviewedAt:r.reviewedAt?formatDateTime_(r.reviewedAt):'',comment:r.comment||'',createdAt:r.createdAt?formatDateTime_(r.createdAt):''};
 }
 
 function timeReviewId_(user,date,type,session){
@@ -3881,14 +3926,12 @@ function reviewTimeException(token,id,decision,comment) {
 }
 
 function timeReviewStatementForCard_(reviews, flags) {
-  flags=Array.isArray(flags)?flags:splitAttendanceFlags_(flags);
-  if(!flags.length) return '';
+  flags=Array.isArray(flags)?flags:splitAttendanceFlags_(flags); if(!flags.length)return '';
   const relevant=(reviews||[]).filter(r=>flags.includes(String(r.type||'').toUpperCase()));
-  if(relevant.some(r=>r.reviewStatus==='DITOLAK')) {
-    const x=relevant.find(r=>r.reviewStatus==='DITOLAK'); return `DITOLAK - ${x.reviewerName||'PENTADBIR SISTEM'}`;
-  }
-  if(relevant.length && relevant.every(r=>r.reviewStatus==='DIAMBIL MAKLUM')) return 'Maklum - Pengetua';
-  return 'Belum diambil Maklum';
+  const statement=r=>[r.reviewStatus||'',getReviewerJobTitleFromEmail_(r.reviewedBy)||'Pentadbir Sistem',r.comment||'',r.reviewedAt?formatDateTime_(r.reviewedAt):''].filter(Boolean).join(' · ');
+  if(relevant.some(r=>r.reviewStatus==='DITOLAK'))return statement(relevant.find(r=>r.reviewStatus==='DITOLAK'));
+  if(relevant.length&&relevant.every(r=>r.reviewStatus==='DIAMBIL MAKLUM'))return relevant.map(statement).join(' | ');
+  return 'BELUM DIAMBIL MAKLUM';
 }
 
 function generatePdfReport_(title, headers, rows, fileName) {
@@ -3909,8 +3952,8 @@ function generateTimeReviewPdf(token, filters) {
   if(filters.type) rows=rows.filter(r=>r.type===filters.type);
   if(filters.status) rows=rows.filter(r=>r.reviewStatus===filters.status);
   return generatePdfReport_(`Laporan Semakan Lewat / Balik Awal ${data.fromDate} hingga ${data.toDate}`,
-    ['Tarikh','Nama','Jawatan','Jenis','Sesi','Rekod','Rujukan','Status Semakan','Pelulus','Ulasan'],
-    rows.map(r=>[r.date,r.name,r.jobTitle,r.type,r.session,r.recordTime,r.referenceTime,r.reviewStatus,r.reviewerName||'',r.comment||'']),
+    ['Tarikh','Nama','Jawatan','Jenis','Sesi','Rekod','Rujukan','Status Semakan','Jawatan Pelulus','Ulasan'],
+    rows.map(r=>[r.date,r.name,r.jobTitle,r.type,r.session,r.recordTime,r.referenceTime,r.reviewStatus,r.reviewerJobTitle||'',r.comment||'']),
     `Semakan_Waktu_${data.fromDate}_${data.toDate}.pdf`);
 }
 
@@ -4149,7 +4192,7 @@ function readAbsenceRows_() {
 }
 function findAbsenceById_(id){return readAbsenceRows_().find(r=>r.id===String(id||'').trim())||null;}
 function publicAbsenceOwn_(r){return {id:r.id,type:r.type,mode:r.mode,startDate:r.startDate,endDate:r.endDate,startTime:r.startTime,endTime:r.endTime,note:r.note,status:r.status,reviewedBy:r.reviewedBy,reviewedAt:r.reviewedAt?formatDateTime_(r.reviewedAt):'',comment:r.comment,submittedAt:r.submittedAt?formatDateTime_(r.submittedAt):''};}
-function publicAbsenceManagement_(r){return {id:r.id,submittedAt:r.submittedAt?formatDateTime_(r.submittedAt):'',email:r.email,name:r.name,jobTitle:r.jobTitle||'',category:r.category,type:r.type,mode:r.mode,startDate:r.startDate,endDate:r.endDate,startTime:r.startTime,endTime:r.endTime,note:r.note,status:r.status,reviewedBy:r.reviewedBy,reviewedAt:r.reviewedAt?formatDateTime_(r.reviewedAt):'',comment:r.comment};}
+function publicAbsenceManagement_(r){return {id:r.id,submittedAt:r.submittedAt?formatDateTime_(r.submittedAt):'',email:r.email,name:r.name,jobTitle:r.jobTitle||'',category:r.category,type:r.type,mode:r.mode,startDate:r.startDate,endDate:r.endDate,startTime:r.startTime,endTime:r.endTime,note:r.note,status:r.status,reviewerJobTitle:getReviewerJobTitleFromEmail_(r.reviewedBy),reviewedAt:r.reviewedAt?formatDateTime_(r.reviewedAt):'',comment:r.comment};}
 function dateRangesOverlap_(a1,a2,b1,b2){return a1<=b2&&b1<=a2;}
 function daysBetweenKeys_(a,b){return Math.round((new Date(b+'T00:00:00').getTime()-new Date(a+'T00:00:00').getTime())/86400000);}
 function addDaysKey_(key,n){const d=new Date(key+'T00:00:00');d.setDate(d.getDate()+n);return Utilities.formatDate(d,tz_(),'yyyy-MM-dd');}
@@ -4159,8 +4202,8 @@ function generateAbsencePresencePdf(token, filters){
   requireManagementUser_(token);filters=filters||{};const data=getAbsenceManagementData(token,filters.fromDate,filters.toDate);let rows=data.requests;
   if(filters.mode)rows=rows.filter(r=>r.mode===filters.mode);if(filters.status)rows=rows.filter(r=>r.status===filters.status);if(filters.category)rows=rows.filter(r=>r.category===filters.category);
   return generatePdfReport_(`Semakan Tidak Hadir / Keberadaan ${data.fromDate} hingga ${data.toDate}`,
-    ['Nama','Jawatan','Kategori','Mod','Jenis','Tarikh','Masa','Status','Disemak Oleh','Ulasan'],
-    rows.map(r=>[r.name,r.jobTitle||'',r.category,r.mode==='KEBERADAAN'?'Keberadaan':'Tidak Hadir',r.type,r.startDate===r.endDate?r.startDate:`${r.startDate} - ${r.endDate}`,r.mode==='KEBERADAAN'?`${r.startTime} - ${r.endTime}`:'—',r.status,r.reviewedBy||'',r.comment||'']),
+    ['Nama','Jawatan','Kategori','Mod','Jenis','Tarikh','Masa','Status','Jawatan Pelulus','Ulasan'],
+    rows.map(r=>[r.name,r.jobTitle||'',r.category,r.mode==='KEBERADAAN'?'Keberadaan':'Tidak Hadir',r.type,r.startDate===r.endDate?r.startDate:`${r.startDate} - ${r.endDate}`,r.mode==='KEBERADAAN'?`${r.startTime} - ${r.endTime}`:'—',r.status,r.reviewerJobTitle||'',r.comment||'']),
     `Semakan_Tidak_Hadir_Keberadaan_${data.fromDate}_${data.toDate}.pdf`);
 }
 
@@ -4278,6 +4321,11 @@ function mergeAttendanceReason_(current, extra) {
   if (!current) return extra;
   if (current.toUpperCase().includes(extra.toUpperCase())) return current;
   return `${current} | ${extra}`;
+}
+
+function getReviewerJobTitleFromEmail_(email) {
+  const em=normalizeEmail_(email), u=em?getUserByEmail_(em,false):null;
+  return u?String(u.jobTitle||(u.isAdmin?'Pentadbir Sistem':u.category||'')).trim():'';
 }
 
 function getReviewerNameFromEmail_(email) {
@@ -4445,7 +4493,7 @@ function publicUnexplainedAbsenceOwn_(r) {
 }
 
 function publicUnexplainedAbsenceManagement_(r) {
-  return {id:r.id,submittedAt:r.startDate,email:r.email,name:r.name,jobTitle:r.jobTitle||'',category:r.category,mode:'TIDAK_HADIR',type:'TIADA PENJELASAN',startDate:r.startDate,endDate:r.endDate,note:r.note,status:'TIDAK MOHON',reviewedBy:'',reviewedAt:'',comment:'',synthetic:true};
+  return {id:r.id,submittedAt:r.startDate,email:r.email,name:r.name,jobTitle:r.jobTitle||'',category:r.category,mode:'TIDAK_HADIR',type:'TIADA PENJELASAN',startDate:r.startDate,endDate:r.endDate,note:r.note,status:'TIDAK MOHON',reviewerJobTitle:'',reviewedAt:'',comment:'',synthetic:true};
 }
 
 /**

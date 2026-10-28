@@ -376,7 +376,7 @@ const state = {
     text('sideUserRole',[b.user.jobTitle,b.user.category,b.user.isAdmin?'Pentadbir Sistem':''].filter(Boolean).join(' · '));
     const initial=(b.user.name||'U').charAt(0).toUpperCase(); text('userInitial',initial); text('welcomeInitial',initial);
     text('topRole',b.user.category); text('topDate',b.today); text('welcomeName',b.user.name); text('welcomeSub',[b.user.email,b.user.jobTitle,b.user.category].filter(Boolean).join(' · '));
-    const hasSecondSession=!!(b.schedule.s2In&&b.schedule.s2Out);
+    const hasSecondSession=!!(b.schedule.allowSecondSession||b.schedule.s2In||b.schedule.s2Out);
     const visibleSession=step.complete?(hasSecondSession?2:1):(Number(step.session)||1);
     const activeInRef=visibleSession===2?b.schedule.s2In:b.schedule.s1In, activeOutRef=visibleSession===2?b.schedule.s2Out:b.schedule.s1Out;
     const activeInTime=visibleSession===2?a.inTime2:a.inTime, activeOutTime=visibleSession===2?a.outTime2:a.outTime;
@@ -384,8 +384,9 @@ const state = {
     text('activeInTime',activeInTime||'—'); text('activeOutTime',activeOutTime||'—');
     setBadge('statusBadge',a.status||'BELUM REKOD'); setBadge('homeStatusBadge',a.status||'BELUM REKOD');
     const btnIn=document.getElementById('btnIn'),btnOut=document.getElementById('btnOut');
-    if(btnIn){btnIn.disabled=step.complete||step.type!=='IN';btnIn.textContent=step.complete?'Rekod Waktu Lengkap':'Rakam Waktu Masuk';}
-    if(btnOut){btnOut.disabled=step.complete||step.type!=='OUT';btnOut.textContent=step.complete?'Rekod Waktu Lengkap':'Rakam Waktu Balik';}
+    const sessionLabel=`Sesi ${Number(step.session)||1}`;
+    if(btnIn){btnIn.disabled=step.complete||step.type!=='IN';btnIn.textContent=step.complete?'Rekod Waktu Lengkap':`Rakam Waktu Masuk · ${sessionLabel}${Number(step.session)===2?' (jika ada)':''}`;}
+    if(btnOut){btnOut.disabled=step.complete||step.type!=='OUT';btnOut.textContent=step.complete?'Rekod Waktu Lengkap':`Rakam Waktu Balik · ${sessionLabel}`;}
     document.getElementById('adminMenu').classList.toggle('hidden',!b.user.isAdmin); document.getElementById('adminQuick').classList.toggle('hidden',!b.user.isAdmin);
     document.getElementById('timeReviewMenu')?.classList.toggle('hidden',!b.user.isAdmin);
     document.getElementById('absenceManageMenu').classList.toggle('hidden',!b.user.canManageAbsence);
@@ -470,17 +471,11 @@ const state = {
     for(let day=start;day<=end;day++){
       const r=byDay.get(day)||{},status=String(r.status||'').trim().toUpperCase();
       const cls=status==='TIDAK HADIR'?'pc-row-absent':status==='WEEKEND'?'pc-row-weekend':(status.includes('LEWAT')||status.includes('BALIK AWAL'))?'pc-row-lewat':status==='HADIR'?'pc-row-hadir':'';
-      if(status==='WEEKEND'){
-        const label=String(r.reason||'').trim().toUpperCase()||'CUTI';
-        html+=`<tr class="${cls}"><td class="pc-day">${day}</td><td colspan="6" class="pc-weekend-full"><span>${esc(label)}</span></td></tr>`;continue;
-      }
-      if(status==='TIDAK HADIR'){
-        const reason=String(r.reason||'').trim(),detail=reason&&reason.toUpperCase()!=='TIDAK HADIR'?reason:'TIADA PENJELASAN';
-        html+=`<tr class="${cls}"><td class="pc-day">${day}</td><td colspan="6" class="pc-absence-full"><span class="pc-absence-label">TIDAK HADIR</span><span class="pc-absence-reason">${esc(detail)}</span></td></tr>`;continue;
-      }
-      html+=`<tr class="${cls}"><td class="pc-day">${day}</td><td>${esc(shortTime(r.inTime))}</td><td>${esc(shortTime(r.outTime))}</td><td>${esc(shortTime(r.inTime2))}</td><td>${esc(shortTime(r.outTime2))}</td><td class="pc-statement">${esc(cardStatement(r))}</td><td class="pc-sign"></td></tr>`;
-    }
-    return html;
+      if(status==='WEEKEND'){const label=String(r.reason||'').trim().toUpperCase()||'CUTI';html+=`<tr class="${cls}"><td class="pc-day">${day}</td><td colspan="6" class="pc-weekend-full"><span>${esc(label)}</span></td></tr>`;continue;}
+      if(status==='TIDAK HADIR'){const reason=String(r.reason||'').trim(),detail=reason&&reason.toUpperCase()!=='TIDAK HADIR'?reason:'TIADA PENJELASAN';html+=`<tr class="${cls}"><td class="pc-day">${day}</td><td colspan="6" class="pc-absence-full"><span class="pc-absence-label">TIDAK HADIR</span><span class="pc-absence-reason">${esc(detail)}</span></td></tr>`;continue;}
+      const reviews=r.reviewItems||[], flagged=(type,session)=>reviews.some(x=>String(x.type||'').toUpperCase()===type&&Number(x.session||1)===session), tc=(v,bad)=>`<td class="${bad?'pc-time-alert':''}">${esc(shortTime(v))}</td>`;
+      html+=`<tr class="${cls}"><td class="pc-day">${day}</td>${tc(r.inTime,flagged('LEWAT',1))}${tc(r.outTime,flagged('BALIK AWAL',1))}${tc(r.inTime2,flagged('LEWAT',2))}${tc(r.outTime2,flagged('BALIK AWAL',2))}<td class="pc-statement">${esc(cardStatement(r))}</td><td class="pc-sign"></td></tr>`;
+    }return html;
   }
   function shortTime(v){return v?String(v).slice(0,5):'';}
   function cardStatement(r){
@@ -535,6 +530,9 @@ const state = {
   function localDateKey(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
   function presetRange(kind){const today=state.boot?.today||localDateKey(new Date()),systemStart=getSystemStartDateClient(),d=new Date(today+'T12:00:00');if(kind==='today')return[today<systemStart?systemStart:today,today];if(kind==='month'){const start=`${today.slice(0,7)}-01`;return[start<systemStart?systemStart:start,today];}const start=addClientDays(today,-d.getDay());return[start<systemStart?systemStart:start,today];}
 
+  function compareText(a,b){return String(a??'').localeCompare(String(b??''),'ms',{numeric:true,sensitivity:'base'});}
+  function sortRecords(list,mode){const rows=(list||[]).slice(),m=String(mode||''),cmp=(a,b)=>compareText(a,b),dateOf=r=>String(r.startDate||r.date||r.submittedAt||''),statusOf=r=>String(r.reviewStatus||r.status||r.category||''),timeOf=r=>String(r.inTime||'99:99');if(m==='date_desc')return rows.sort((a,b)=>cmp(dateOf(b),dateOf(a))||cmp(a.name,b.name));if(m==='date_asc')return rows.sort((a,b)=>cmp(dateOf(a),dateOf(b))||cmp(a.name,b.name));if(m==='name_desc')return rows.sort((a,b)=>cmp(b.name,a.name));if(m==='status_asc')return rows.sort((a,b)=>cmp(statusOf(a),statusOf(b))||cmp(a.name,b.name));if(m==='category_asc')return rows.sort((a,b)=>cmp(a.category,b.category)||cmp(a.name,b.name));if(m==='active_first')return rows.sort((a,b)=>(Number(!!b.active)-Number(!!a.active))||cmp(a.name,b.name));if(m==='in_asc')return rows.sort((a,b)=>cmp(timeOf(a),timeOf(b))||cmp(a.name,b.name));if(m==='in_desc')return rows.sort((a,b)=>cmp(timeOf(b),timeOf(a))||cmp(a.name,b.name));return rows.sort((a,b)=>cmp(a.name,b.name));}
+
   // ---------- Senarai Tidak Hadir / Keberadaan (semua pengguna) ----------
   function ensureAbsencePublicDates(){
     const f=document.getElementById('absencePublicFrom'),t=document.getElementById('absencePublicTo'),systemStart=getSystemStartDateClient();
@@ -549,10 +547,10 @@ const state = {
     catch(e){handleServerError(e);}
   }
   function setAbsencePublicPreset(kind){const [f,t]=presetRange(kind);document.getElementById('absencePublicFrom').value=f;document.getElementById('absencePublicTo').value=t;loadAbsencePublic(true);}
-  function currentAbsencePublicFilters(){return {fromDate:document.getElementById('absencePublicFrom')?.value||'',toDate:document.getElementById('absencePublicTo')?.value||'',search:String(document.getElementById('absencePublicSearch')?.value||'').trim(),mode:document.getElementById('absencePublicMode')?.value||'',status:document.getElementById('absencePublicStatus')?.value||'',category:document.getElementById('absencePublicCategory')?.value||''};}
+  function currentAbsencePublicFilters(){return {fromDate:document.getElementById('absencePublicFrom')?.value||'',toDate:document.getElementById('absencePublicTo')?.value||'',search:String(document.getElementById('absencePublicSearch')?.value||'').trim(),mode:document.getElementById('absencePublicMode')?.value||'',status:document.getElementById('absencePublicStatus')?.value||'',category:document.getElementById('absencePublicCategory')?.value||'',sort:document.getElementById('absencePublicSort')?.value||'date_desc'};}
   function filteredAbsencePublicRows(){
     const data=state.absencePublic?.rows||[],f=currentAbsencePublicFilters(),q=norm(f.search);
-    return data.filter(r=>{const hay=norm([r.name,r.jobTitle,r.category,r.mode,r.type,r.startDate,r.endDate,r.startTime,r.endTime,r.status].join(' '));return(!q||hay.includes(q))&&(!f.mode||r.mode===f.mode)&&(!f.status||r.status===f.status)&&(!f.category||r.category===f.category);});
+    return sortRecords(data.filter(r=>{const hay=norm([r.name,r.jobTitle,r.category,r.mode,r.type,r.startDate,r.endDate,r.startTime,r.endTime,r.status].join(' '));return(!q||hay.includes(q))&&(!f.mode||r.mode===f.mode)&&(!f.status||r.status===f.status)&&(!f.category||r.category===f.category);}),f.sort);
   }
   function applyAbsencePublicFilters(){
     const data=state.absencePublic?.rows||[],list=filteredAbsencePublicRows();
@@ -575,11 +573,7 @@ const state = {
     catch(e){handleServerError(e);}
   }
   function setAbsenceManagePreset(kind){const [f,t]=presetRange(kind);document.getElementById('absenceManageFrom').value=f;document.getElementById('absenceManageTo').value=t;loadAbsenceManagement(true);}
-  function applyAbsenceManageFilters(){
-    const data=state.absenceManagement?.requests||[],q=norm(document.getElementById('absenceManageSearch')?.value),st=document.getElementById('absenceManageStatus')?.value||'',cat=document.getElementById('absenceManageCategory')?.value||'',mode=document.getElementById('absenceManageMode')?.value||'';
-    const list=data.filter(r=>{const hay=norm([r.id,r.submittedAt,r.name,r.jobTitle,r.email,r.category,r.mode,r.type,r.startDate,r.endDate,r.startTime,r.endTime,r.note,r.status,r.reviewedBy,r.reviewedAt,r.comment].join(' '));return(!q||hay.includes(q))&&(!st||r.status===st)&&(!cat||r.category===cat)&&(!mode||r.mode===mode);});
-    text('absenceManageCount',`${list.length} / ${data.length} rekod`);const body=document.getElementById('absenceManageRows');if(!body)return;
-    body.innerHTML=list.length?list.map(r=>`<tr><td><b>${esc(r.name)}</b><small class="table-sub">${esc(r.jobTitle||'—')} · ${esc(r.email)} · ${esc(r.category)}</small></td><td><b>${esc(r.mode==='KEBERADAAN'?'Keberadaan':'Tidak Hadir')}</b></td><td><b>${esc(r.type)}</b></td><td>${esc(formatDateRange(r.startDate,r.endDate))}${r.mode==='KEBERADAAN'?`<small class="table-sub">${esc(r.startTime||'—')} – ${esc(r.endTime||'—')}</small>`:''}<small class="table-sub">${r.synthetic?'Dikesan:':'Hantar:'} ${esc(r.submittedAt)}</small></td><td>${esc(r.note||'—')}</td><td><span class="request-status ${absenceStatusClass(r.status)}">${esc(r.status)}</span></td><td>${r.status==='MENUNGGU'?`<div class="row-actions"><button class="action-link approve-link" onclick='openReviewAbsence(${JSON.stringify(r.id)},"DILULUSKAN")'>Lulus</button><button class="action-link warn-link" onclick='openReviewAbsence(${JSON.stringify(r.id)},"DITOLAK")'>Tolak</button></div>`:r.synthetic?'<span class="muted">Tiada permohonan</span>':`<b>${esc(r.reviewedBy||'—')}</b><small class="table-sub">${esc(r.reviewedAt||'')}</small><small class="table-sub">${esc(r.comment||'')}</small>`}</td></tr>`).join(''):'<tr><td colspan="7" class="empty-cell">Tiada rekod sepadan.</td></tr>';
+  function applyAbsenceManageFilters(){const data=state.absenceManagement?.requests||[],q=norm(document.getElementById('absenceManageSearch')?.value),st=document.getElementById('absenceManageStatus')?.value||'',cat=document.getElementById('absenceManageCategory')?.value||'',mode=document.getElementById('absenceManageMode')?.value||'',sort=document.getElementById('absenceManageSort')?.value||'date_desc';const list=sortRecords(data.filter(r=>{const hay=norm([r.id,r.submittedAt,r.name,r.jobTitle,r.email,r.category,r.mode,r.type,r.startDate,r.endDate,r.startTime,r.endTime,r.note,r.status,r.reviewerJobTitle,r.reviewedAt,r.comment].join(' '));return(!q||hay.includes(q))&&(!st||r.status===st)&&(!cat||r.category===cat)&&(!mode||r.mode===mode);}),sort);text('absenceManageCount',`${list.length} / ${data.length} rekod`);const body=document.getElementById('absenceManageRows');if(!body)return;body.innerHTML=list.length?list.map(r=>`<tr><td><b>${esc(r.name)}</b><small class="table-sub">${esc(r.jobTitle||'—')} · ${esc(r.email)} · ${esc(r.category)}</small></td><td><b>${esc(r.mode==='KEBERADAAN'?'Keberadaan':'Tidak Hadir')}</b></td><td><b>${esc(r.type)}</b></td><td>${esc(formatDateRange(r.startDate,r.endDate))}${r.mode==='KEBERADAAN'?`<small class="table-sub">${esc(r.startTime||'—')} – ${esc(r.endTime||'—')}</small>`:''}<small class="table-sub">${r.synthetic?'Dikesan:':'Hantar:'} ${esc(r.submittedAt)}</small></td><td>${esc(r.note||'—')}</td><td><span class="request-status ${absenceStatusClass(r.status)}">${esc(r.status)}</span></td><td>${r.status==='MENUNGGU'?`<div class="row-actions"><button class="action-link approve-link" onclick='openReviewAbsence(${JSON.stringify(r.id)},"DILULUSKAN")'>Lulus</button><button class="action-link warn-link" onclick='openReviewAbsence(${JSON.stringify(r.id)},"DITOLAK")'>Tolak</button></div>`:r.synthetic?'<span class="muted">Tiada permohonan</span>':`<span class="review-role-tag">${esc(r.reviewerJobTitle||'Pengurusan')}</span><small class="table-sub">Catatan: ${esc(r.comment||'—')}</small><small class="table-sub">${esc(r.reviewedAt||'—')}</small>`}</td></tr>`).join(''):'<tr><td colspan="7" class="empty-cell">Tiada rekod sepadan.</td></tr>';
   }
 
   function openReviewAbsence(id,decision){
@@ -597,14 +591,10 @@ const state = {
     try{state.timeReview=await runServer('getTimeReviewData',state.token,from,to);state.timeReview._key=key;applyTimeReviewFilters();}catch(e){handleServerError(e);}
   }
   function setTimeReviewPreset(kind){const [f,t]=presetRange(kind);document.getElementById('timeReviewFrom').value=f;document.getElementById('timeReviewTo').value=t;loadTimeReview(true);}
-  function applyTimeReviewFilters(){
-    const data=state.timeReview?.rows||[],q=norm(document.getElementById('timeReviewSearch')?.value),type=document.getElementById('timeReviewType')?.value||'',st=document.getElementById('timeReviewStatus')?.value||'';
-    const list=data.filter(r=>{const hay=norm([r.name,r.jobTitle,r.email,r.category,r.date,r.type,r.session,r.recordTime,r.referenceTime,r.reviewStatus,r.reviewerName,r.comment].join(' '));return(!q||hay.includes(q))&&(!type||r.type===type)&&(!st||r.reviewStatus===st);});
-    text('timeReviewCount',`${list.length} / ${data.length} rekod`);const body=document.getElementById('timeReviewRows');if(!body)return;
-    body.innerHTML=list.length?list.map(r=>`<tr><td><b>${esc(r.name)}</b><small class="table-sub">${esc(r.jobTitle||'—')} · ${esc(r.email)}</small></td><td>${esc(r.date)}</td><td><span class="badge ${r.type==='LEWAT'?'lewat':'awal'}">${esc(r.type)}</span></td><td>${esc(r.session)}</td><td><b>${esc(r.recordTime)}</b></td><td>${esc(r.referenceTime||'—')}</td><td><span class="request-status ${r.reviewStatus==='DIAMBIL MAKLUM'?'approved':r.reviewStatus==='DITOLAK'?'rejected':'pending'}">${esc(r.reviewStatus)}</span></td><td>${r.reviewStatus==='BELUM DIAMBIL MAKLUM'?`<div class="row-actions"><button class="action-link approve-link" onclick='openTimeReview(${JSON.stringify(r.id)},"DIAMBIL MAKLUM")'>Diambil Maklum</button><button class="action-link warn-link" onclick='openTimeReview(${JSON.stringify(r.id)},"DITOLAK")'>Ditolak</button></div>`:`<b>${esc(r.reviewStatus)} oleh ${esc(r.reviewerName||r.reviewedBy||'—')}</b><small class="table-sub">${esc(r.reviewedAt||'')}</small><small class="table-sub">${esc(r.comment||'')}</small>`}</td></tr>`).join(''):'<tr><td colspan="8" class="empty-cell">Tiada rekod sepadan.</td></tr>';
+  function applyTimeReviewFilters(){const data=state.timeReview?.rows||[],q=norm(document.getElementById('timeReviewSearch')?.value),type=document.getElementById('timeReviewType')?.value||'',st=document.getElementById('timeReviewStatus')?.value||'',sort=document.getElementById('timeReviewSort')?.value||'date_desc';const list=sortRecords(data.filter(r=>{const hay=norm([r.name,r.jobTitle,r.email,r.category,r.date,r.type,r.session,r.recordTime,r.referenceTime,r.reviewStatus,r.reviewerJobTitle,r.comment].join(' '));return(!q||hay.includes(q))&&(!type||r.type===type)&&(!st||r.reviewStatus===st);}),sort);text('timeReviewCount',`${list.length} / ${data.length} rekod`);const body=document.getElementById('timeReviewRows');if(!body)return;body.innerHTML=list.length?list.map(r=>`<tr><td><b>${esc(r.name)}</b><small class="table-sub">${esc(r.jobTitle||'—')} · ${esc(r.email)}</small></td><td>${esc(r.date)}</td><td><span class="badge ${r.type==='LEWAT'?'lewat':'awal'}">${esc(r.type)}</span></td><td>${esc(r.session)}</td><td><b>${esc(r.recordTime)}</b></td><td>${esc(r.referenceTime||'—')}</td><td><span class="request-status ${r.reviewStatus==='DIAMBIL MAKLUM'?'approved':r.reviewStatus==='DITOLAK'?'rejected':'pending'}">${esc(r.reviewStatus)}</span></td><td>${r.reviewStatus==='BELUM DIAMBIL MAKLUM'?`<div class="row-actions"><button class="action-link approve-link" onclick='openTimeReview(${JSON.stringify(r.id)},"DIAMBIL MAKLUM")'>Diambil Maklum</button><button class="action-link warn-link" onclick='openTimeReview(${JSON.stringify(r.id)},"DITOLAK")'>Ditolak</button></div>`:`<span class="review-role-tag">${esc(r.reviewerJobTitle||'Pentadbir Sistem')}</span><small class="table-sub">Catatan: ${esc(r.comment||'—')}</small><small class="table-sub">${esc(r.reviewedAt||'—')}</small>`}</td></tr>`).join(''):'<tr><td colspan="8" class="empty-cell">Tiada rekod sepadan.</td></tr>';
   }
   function openTimeReview(id,decision){const r=state.timeReview?.rows?.find(x=>x.id===id);if(!r)return;showModal(`<h3>${esc(decision==='DIAMBIL MAKLUM'?'Diambil Maklum':'Tolak')} Rekod Waktu</h3><p><b>${esc(r.name)}</b><br><span class="muted">${esc(r.jobTitle||'')} · ${esc(r.email)}</span></p><div class="review-summary"><div><span>Jenis</span><b>${esc(r.type)}</b></div><div><span>Sesi</span><b>${esc(r.session)}</b></div><div><span>Waktu</span><b>${esc(r.recordTime)}</b></div><div><span>Rujukan</span><b>${esc(r.referenceTime||'—')}</b></div></div><form onsubmit='submitTimeReview(event,${JSON.stringify(id)},${JSON.stringify(decision)})'><label>Ulasan<textarea name="comment" rows="3" placeholder="Catatan (opsyenal)"></textarea></label><p><button class="btn ${decision==='DIAMBIL MAKLUM'?'primary':'dark'}" type="submit">Simpan Keputusan</button></p></form>`);}
-  async function submitTimeReview(ev,id,decision){ev.preventDefault();const comment=new FormData(ev.target).get('comment')||'';try{const r=await runServer('reviewTimeException',state.token,id,decision,comment);closeModal();toast(`${r.status} oleh ${r.reviewerName}.`,4500);state.timeReview=null;state.myCardLoaded=false;state.adminCardData=null;await loadTimeReview(true);}catch(e){handleServerError(e);}}
+  async function submitTimeReview(ev,id,decision){ev.preventDefault();const comment=new FormData(ev.target).get('comment')||'';try{const r=await runServer('reviewTimeException',state.token,id,decision,comment);closeModal();toast(`${r.status}.`,4500);state.timeReview=null;state.myCardLoaded=false;state.adminCardData=null;await loadTimeReview(true);}catch(e){handleServerError(e);}}
   async function generateTimeReviewPdfClient(){try{const filters={fromDate:document.getElementById('timeReviewFrom').value,toDate:document.getElementById('timeReviewTo').value,type:document.getElementById('timeReviewType').value,status:document.getElementById('timeReviewStatus').value};const r=await runServer('generateTimeReviewPdf',state.token,filters);downloadPdfResult(r);toast('Laporan PDF dijana.');}catch(e){handleServerError(e);}}
 
   // ---------- Admin data / report ----------
@@ -623,10 +613,10 @@ const state = {
   function applyReportFilters(){
     const data=state.admin?.report||[],q=norm(document.getElementById('reportSearch')?.value),cat=document.getElementById('reportCategoryFilter')?.value||'',st=document.getElementById('reportStatusFilter')?.value||'',src=document.getElementById('reportSourceFilter')?.value||'';
     // Search intentionally excludes inTime/outTime as requested.
-    const list=data.filter(r=>{
+    const list=sortRecords(data.filter(r=>{
       const hay=norm([r.date,r.name,r.jobTitle,r.email,r.category,r.status,r.inDistanceM,r.outDistanceM,r.inDistanceM2,r.outDistanceM2,r.source,r.editedBy,r.reason,r.inIp,r.outIp,r.inIp2,r.outIp2,r.ipCheck].join(' '));
       return(!q||hay.includes(q))&&(!cat||r.category===cat)&&(!st||String(r.status||'').includes(st))&&(!src||r.source===src);
-    });
+    }),document.getElementById('reportSort')?.value||'name_asc');
     state.filteredReport=list;text('reportFilterCount',`${list.length} / ${data.length} rekod`);renderReportRows(list);
   }
 
@@ -653,10 +643,10 @@ const state = {
   function userPinState(u){return u.isLocked?'locked':u.mustChangePassword?'temp':!u.pinSet?'unset':'ready';}
   function applyUserFilters(){
     const data=state.admin?.users||[],q=norm(document.getElementById('userSearch')?.value),cat=document.getElementById('userCategoryFilter')?.value||'',active=document.getElementById('userActiveFilter')?.value||'',adm=document.getElementById('userAdminFilter')?.value||'',pw=document.getElementById('userPasswordFilter')?.value||'';
-    const list=data.filter(u=>{
+    const list=sortRecords(data.filter(u=>{
       const ps=userPinState(u),hay=norm([u.active?'aktif':'tidak aktif',u.name,u.jobTitle,u.email,u.category,u.isAdmin?'pentadbir sistem':'bukan admin',ps,u.s1In,u.s1Out,u.s2In,u.s2Out,u.note,u.lockedUntil,u.hasProfilePhoto?'gambar profil':'tiada gambar'].join(' '));
       return(!q||hay.includes(q))&&(!cat||u.category===cat)&&(!active||(active==='active'?u.active:!u.active))&&(!adm||(adm==='yes'?u.isAdmin:!u.isAdmin))&&(!pw||ps===pw);
-    });
+    }),document.getElementById('userSort')?.value||'name_asc');
     state.filteredUsers=list;text('userFilterCount',`${list.length} / ${data.length} pengguna`);renderUserRows(list);updateBulkSelectionUI();
   }
 
