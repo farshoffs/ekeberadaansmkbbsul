@@ -18,7 +18,8 @@ try {
     $result=rpc($input['fn'],$input['args']);
     echo json_encode(['ok'=>true,'result'=>$result],JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    $safe=$e instanceof PDOException ? 'Ralat database. Semak konfigurasi dan log PHP.' : $e->getMessage();
+    // Give actionable DB error categories without returning credentials, SQL or PII.
+    $safe=$e instanceof PDOException ? database_public_error($e) : $e->getMessage();
     http_response_code($e instanceof InvalidArgumentException?400:422);
     error_log('eKeberadaan API: '.get_class($e).' '.$e->getMessage());
     echo json_encode(['ok'=>false,'error'=>$safe],JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE);
@@ -425,4 +426,29 @@ function issue_temp_pin(array $admin,string $email): array {
     audit_event($admin['emel'],'RESET_PIN_PHP',$email,'PIN sementara dijana; sesi lama dibatalkan');
     return ['ok'=>true,'name'=>$u['nama'],'email'=>$email,'temporaryPin'=>$tempPin,'emailSent'=>false,
       'message'=>'Serahkan PIN sementara secara peribadi. Pengguna wajib menukar PIN selepas log masuk.'];
+}
+
+/** Return only a whitelisted DB failure category, never an SQL statement. */
+function database_public_error(PDOException $e): string {
+    $driver=(int)($e->errorInfo[1]??0);
+    switch ($driver) {
+      case 1045:
+      case 1044:
+        return 'MySQL menolak sambungan: semak nama pengguna, kata laluan dan privileges dalam php/config.local.php.';
+      case 2002:
+      case 2003:
+      case 2005:
+        return 'Tidak dapat sambung ke MySQL. Jika PHP dan MySQL dalam cPanel yang sama, cuba host=localhost.';
+      case 1049:
+        return 'Nama database tidak dijumpai. Semak database dalam php/config.local.php.';
+      case 1146:
+        return 'Jadual MySQL tidak dijumpai. Import php/schema.sql ke database yang betul dalam phpMyAdmin.';
+      case 1054:
+        return 'Struktur jadual MySQL belum dikemas kini (missing column). Jalankan php/schema.sql versi terbaru melalui phpMyAdmin.';
+      case 1142:
+      case 1143:
+        return 'Pengguna MySQL tiada kebenaran SELECT/INSERT/UPDATE untuk database ini. Semak MySQL Databases di cPanel.';
+      default:
+        return 'Ralat operasi MySQL. Semak php/schema.sql, database dan PHP error log. (Kod MySQL: '.($driver ?: 'unknown').')';
+    }
 }
