@@ -58,7 +58,9 @@ function time_text($x): string {
     if (is_numeric($v)) {
         $fraction=fmod((float)$v,1.0);
         if ($fraction<0) $fraction+=1.0;
-        $minutes=(int)round($fraction*1440) % 1440;
+        // Match Apps Script HH:mm formatting: discard seconds, never round
+        // 18:25:51 up to 18:26 on the physical punch card.
+        $minutes=(int)floor($fraction*1440 + 1e-8) % 1440;
         return sprintf('%02d:%02d',intdiv($minutes,60),$minutes%60);
     }
     return '';
