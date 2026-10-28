@@ -128,10 +128,40 @@ function rpc(string $fn,array $a) {
       case 'adminRevokeAllTrustedDevices':
         require_user($a[0]??'',true);
         $n=execute_sql('DELETE FROM web_sessions WHERE email=?',[email_key($a[1]??'')]);return ['ok'=>true,'count'=>$n];
+      case 'changePin':
+        $token=(string)($a[0]??'');
+        $u=require_user($token,false,false);
+        $oldPin=(string)($a[1]??'');$newPin=(string)($a[2]??'');$confirm=(string)($a[3]??'');
+        if (!preg_match('/^\d{6}$/',$oldPin) || !preg_match('/^\d{6}$/',$newPin) ||
+            !hash_equals($newPin,$confirm) || hash_equals($oldPin,$newPin))
+            throw new InvalidArgumentException('PIN baharu mesti 6 digit, sepadan dan berbeza daripada PIN lama.');
+        $auth=one('SELECT pin_hash,locked_until FROM web_auth WHERE email=?',[$u['emel']]);
+        if (!$auth || ($auth['locked_until'] && strtotime($auth['locked_until'])>time()))
+            throw new RuntimeException('Akaun sedang dikunci atau belum diaktifkan.');
+        if (!password_verify($oldPin,$auth['pin_hash'])) {
+            execute_sql('UPDATE web_auth SET attempts=attempts+1,locked_until=IF(attempts>=4,DATE_ADD(NOW(), INTERVAL 15 MINUTE),NULL) WHERE email=?',[$u['emel']]);
+            throw new RuntimeException('PIN lama tidak tepat.');
+        }
+        execute_sql('UPDATE web_auth SET pin_hash=?,must_change_pin=0,attempts=0,locked_until=NULL WHERE email=?',
+            [password_hash($newPin,PASSWORD_DEFAULT),$u['emel']]);
+        execute_sql('DELETE FROM web_sessions WHERE email=? AND token_hash<>?',
+            [$u['emel'],hash('sha256',$token)]);
+        audit_event($u['emel'],'TUKAR_PIN',$u['emel']);
+        return ['ok'=>true,'message'=>'PIN berjaya ditukar. Sesi peranti lain telah dibatalkan.','boot'=>bootstrap($u)];
       case 'adminResetPassword':
+        $admin=require_user($a[0]??'',true);
+        return issue_temp_pin($admin,email_key($a[1]??''));
       case 'adminBulkResetPasswords':
-        require_user($a[0]??'',true);
-        throw new RuntimeException('Reset PIN MySQL memerlukan pengesahan pentadbir hosting: php cli_set_pin.php emel@moe.edu.my.');
+        $admin=require_user($a[0]??'',true);
+        $emails=is_array($a[1]??null)?$a[1]:[];
+        if (!count($emails)||count($emails)>150)throw new InvalidArgumentException('Pilih 1 hingga 150 pengguna.');
+        $results=[];
+        foreach(array_unique(array_map('strtolower',$emails)) as $mail) {
+            $email=email_key($mail);
+            if ($email===$admin['emel']) continue;
+            if (user_by_email($email,false)) $results[]=issue_temp_pin($admin,$email);
+        }
+        return ['ok'=>true,'results'=>$results];
       default:
         if (in_array($fn,['generateReportSheet','generateAttendancePresenceReportPdf','generateAttendancePresenceReportSheet',
           'generatePublicAbsencePresencePdf','generateAbsencePresencePdf','generateTimeReviewPdf','adminSyncProfilePhotos',
@@ -376,4 +406,23 @@ function admin_save_settings(array $admin,array $p): array {
     }
     audit_event($admin['emel'],'SIMPAN_TETAPAN','TETAPAN');
     return ['ok'=>true,'settings'=>public_settings(settings_raw())];
+}
+
+
+/**
+ * Admin-only temporary PIN provisioning. Plaintext temporary PIN is only sent
+ * in the immediate HTTPS response to the authenticated administrator.
+ * No temp PIN is written to database or audit logs, and no email is sent.
+ */
+function issue_temp_pin(array $admin,string $email): array {
+    $u=user_by_email($email,false);
+    if (!$u || !(bool)$u['aktif']) throw new RuntimeException('Pengguna tidak aktif atau tidak ditemui.');
+    $tempPin=(string)random_int(100000,999999);
+    $hash=password_hash($tempPin,PASSWORD_DEFAULT);
+    execute_sql('INSERT INTO web_auth (email,pin_hash,must_change_pin,attempts,locked_until) VALUES (?,?,1,0,NULL) ON DUPLICATE KEY UPDATE pin_hash=VALUES(pin_hash),must_change_pin=1,attempts=0,locked_until=NULL',
+       [$email,$hash]);
+    execute_sql('DELETE FROM web_sessions WHERE email=?',[$email]);
+    audit_event($admin['emel'],'RESET_PIN_PHP',$email,'PIN sementara dijana; sesi lama dibatalkan');
+    return ['ok'=>true,'name'=>$u['nama'],'email'=>$email,'temporaryPin'=>$tempPin,'emailSent'=>false,
+      'message'=>'Serahkan PIN sementara secara peribadi. Pengguna wajib menukar PIN selepas log masuk.'];
 }
