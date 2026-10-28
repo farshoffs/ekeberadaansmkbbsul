@@ -3,10 +3,18 @@ on:
   push:
     paths:
       - 'php/**'
+      - 'index.php'
+      - 'api.php'
+      - 'setup.php'
+      - '.htaccess'
       - '.github/workflows/php-lint.yml'
   pull_request:
     paths:
       - 'php/**'
+      - 'index.php'
+      - 'api.php'
+      - 'setup.php'
+      - '.htaccess'
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -18,10 +26,13 @@ jobs:
         run: |
           set -eu
           find php -name '*.php' -type f ! -name 'config.local.php' -print0 | xargs -0 -n1 php -l
+          php -l index.php
+          php -l api.php
+          php -l setup.php
       - name: Verify PHP frontend renders and replaces Apps Script RPC
         run: |
           set -eu
-          php php/index.php > /tmp/ekeberadaan-rendered.html
+          php index.php > /tmp/ekeberadaan-rendered.html
           grep -q 'fetch('\''api.php'\''' /tmp/ekeberadaan-rendered.html
           if grep -q 'google.script.run' /tmp/ekeberadaan-rendered.html; then
             echo 'Apps Script RPC remains in rendered PHP page'
@@ -36,4 +47,4 @@ jobs:
           node --check php/pin-ui.js
           php -l php/setup.php
           grep -q "openChangePin" /tmp/ekeberadaan-rendered.html
-          grep -q "php/api.php" php/README.md
+          grep -q "ekeberadaansmkbbsul/api.php" php/README.md
