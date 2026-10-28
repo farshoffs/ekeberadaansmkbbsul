@@ -31,6 +31,19 @@ function runServerRaw(fn, ...args){
     });
   }
 JS;
+// The renderer serves two targets:
+// - cPanel PHP site: same-origin relative API endpoint
+// - GitHub Actions static build: explicit HTTPS API on existing cPanel hosting.
+// The endpoint is PUBLIC configuration, not a database credential.
+$apiUrl = getenv('EKE_PUBLIC_API_URL') ?: 'api.php';
+if ($apiUrl !== 'api.php' &&
+    $apiUrl !== 'https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php') {
+    http_response_code(500);
+    exit('Invalid EKE_PUBLIC_API_URL');
+}
+$rpcNew = str_replace("fetch('api.php',", 'fetch(' . json_encode($apiUrl, JSON_UNESCAPED_SLASHES) . ',', $rpcNew);
+// All API credentials are explicit session tokens in JSON, never cookies.
+$rpcNew = str_replace("credentials:'same-origin'", "credentials:'omit'", $rpcNew);
 if (strpos($scripts,$rpcOld)!==false) {
     $scripts = str_replace($rpcOld,$rpcNew,$scripts);
 } elseif (strpos($scripts,$rpcOldLegacy)!==false) {
