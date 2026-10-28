@@ -46,8 +46,14 @@ function rpc(string $fn,array $a) {
     ],true)) require_once __DIR__.'/workspace_services.php';
     switch($fn) {
       case 'getApiStatus':
-        // No database query, credentials, user data or session data disclosed.
-        return ['healthy'=>true,'backend'=>'PHP'];
+        // Does not require a MySQL connection or Workspace bridge.
+        return ['healthy'=>true,'backend'=>'PHP','mysqlRequired'=>false];
+      case 'syncClientTelemetry':
+        // Optional browser telemetry must never block user interaction.
+        require_user($a[0]??'',false,false);
+        return ['ok'=>true];
+      case 'setFirstPin':
+        throw new RuntimeException('Akaun dipindahkan dari Google Sheets. Gunakan PIN lama atau minta reset PIN sementara daripada Pentadbir Sistem.');
       case 'getLoginPageData':
         $s=settings_raw();
         return ['schoolName'=>$s['SCHOOL_NAME']??'e-Keberadaan','mode'=>'delima-email-pin','pinLength'=>6,'sessionDays'=>30];
@@ -307,7 +313,7 @@ function punch_card(array $u,string $month): array {
         $storedStatus=strtoupper(trim((string)($x['status']??'')));
         $flags=[];
         foreach(['LEWAT','BALIK AWAL'] as $flag) {
-            if (str_contains($flagText,$flag)||str_contains($storedStatus,$flag)) $flags[]=$flag;
+            if ((strpos($flagText,$flag)!==false)||(strpos($storedStatus,$flag)!==false)) $flags[]=$flag;
         }
         $status=$storedStatus==='TIDAK HADIR'?'TIDAK HADIR':
             ($in? (count($flags)?implode(' / ',$flags):'HADIR'):$storedStatus);
@@ -471,8 +477,8 @@ function admin_data(array $admin,string $day): array {
         $s=$r['status'];
         if ($s==='TIDAK HADIR')$sum['tidakHadir']++;
         elseif ($s==='BELUM HADIR')$sum['belumHadir']++;
-        else {if (str_contains($s,'LEWAT'))$sum['lewat']++;if (str_contains($s,'BALIK AWAL'))$sum['balikAwal']++;
-          if (!str_contains($s,'LEWAT')&&!str_contains($s,'BALIK AWAL'))$sum['hadir']++;}
+        else {if ((strpos($s,'LEWAT')!==false))$sum['lewat']++;if ((strpos($s,'BALIK AWAL')!==false))$sum['balikAwal']++;
+          if (!(strpos($s,'LEWAT')!==false)&&!(strpos($s,'BALIK AWAL')!==false))$sum['hadir']++;}
     }
     return ['date'=>$day,'admin'=>public_user($admin),'users'=>array_map('public_user',$us),
       'settings'=>public_settings(settings_raw()),'report'=>$report,'summary'=>$sum];
