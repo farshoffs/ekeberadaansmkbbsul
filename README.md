@@ -1,5 +1,5 @@
-> **PHP/MySQL migration available (staging):** [php/README.md](php/README.md) · [PHP frontend](php/index.php) · [MySQL API](php/api.php) · [additional database schema](php/schema.sql).
-> The live Google Apps Script app remains separate. This repo's PHP files must be deployed to a PHP hosting server, not GitHub Pages. Never put database passwords or live SQL dumps in GitHub.
+> **cPanel deployment (PHP/MySQL staging):** Extract the project files directly into `public_html/ekeberadaansmkbbsul/`, then open `https://YOUR-DOMAIN/ekeberadaansmkbbsul/`. First-time setup uses `/ekeberadaansmkbbsul/setup.php`. No Terminal required. See [cPanel instructions](php/README.md).
+> The original Google Apps Script application remains separate. GitHub Pages cannot run the PHP backend. Never commit database passwords or SQL dumps.
 
 # eKeberadaan SMKBBSUL
 
