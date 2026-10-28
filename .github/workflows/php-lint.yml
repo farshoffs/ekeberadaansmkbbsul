@@ -41,6 +41,8 @@ jobs:
           grep -q 'e-Keberadaan' /tmp/ekeberadaan-rendered.html
 
 
+      - name: Test legacy Google Sheets PIN login compatibility
+        run: php php/tests/legacy-pin-test.php
       - name: Verify browser setup page and PIN UI syntax
         run: |
           set -eu
