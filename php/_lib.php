@@ -41,7 +41,9 @@ function date_key($x): string {
 }
 function excel_number($x): float {
     // Excel serial values represent local wall-clock time, not UTC instants.
-    $d=$x instanceof DateTimeInterface ? DateTimeImmutable::createFromInterface($x)
+    // PHP 7.4 compatibility: createFromInterface is not available until PHP 8.
+    $d=$x instanceof DateTimeInterface
+        ? new DateTimeImmutable($x->format('Y-m-d H:i:s.u'),new DateTimeZone('Asia/Kuala_Lumpur'))
         : new DateTimeImmutable((string)$x,new DateTimeZone('Asia/Kuala_Lumpur'));
     return ((float)$d->format('U') + $d->getOffset())/86400+25569;
 }
