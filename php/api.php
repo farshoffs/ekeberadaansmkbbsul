@@ -51,9 +51,9 @@ function rpc(string $fn,array $a) {
         audit_event($email,'LOGIN_APLIKASI',$email,'PHP MySQL');
         return create_session($u);
       case 'resumeSession':
-        $u=require_user($a[0]??'');return ['ok'=>true,'token'=>$a[0],'deviceToken'=>$a[0],'remember'=>true,'boot'=>bootstrap($u)];
+        $u=require_user($a[0]??'',false,false);return ['ok'=>true,'token'=>$a[0],'deviceToken'=>$a[0],'remember'=>true,'boot'=>bootstrap($u)];
       case 'resumeTrustedDevice':
-        $u=require_user($a[0]??'');return ['ok'=>true,'token'=>$a[0],'deviceToken'=>$a[0],'remember'=>true,'boot'=>bootstrap($u)];
+        $u=require_user($a[0]??'',false,false);return ['ok'=>true,'token'=>$a[0],'deviceToken'=>$a[0],'remember'=>true,'boot'=>bootstrap($u)];
       case 'logoutApp':
         execute_sql('DELETE FROM web_sessions WHERE token_hash=?',[hash('sha256',(string)($a[0]??''))]);return ['ok'=>true];
       case 'getBootstrapData':
