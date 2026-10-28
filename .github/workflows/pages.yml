@@ -1,0 +1,66 @@
+name: Deploy eKeberadaan UI to GitHub Pages
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Index.html'
+      - 'Logo.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'php/index.php'
+      - 'php/pin-ui.js'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build static frontend using the same template as cPanel PHP
+        env:
+          EKE_PUBLIC_API_URL: https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          php -l php/index.php
+          node --check < Scripts.html
+          php index.php > _site/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          html=Path('_site/index.html').read_text('utf-8')
+          assert html.lstrip().lower().startswith('<!doctype html>'), 'HTML renderer failed'
+          assert 'https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php' in html, 'Remote PHP API URL missing'
+          assert 'google.script.run' not in html, 'Legacy Google Sheets RPC leaked into Pages'
+          assert 'fetch("https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php"' in html, 'Pages API adapter missing'
+          assert 'credentials:\'omit\'' in html, 'Remote API should not use cookies'
+          assert 'config.local.php' not in html, 'Potentially sensitive host configuration reference'
+          html=html.replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>', 1)
+          Path('_site/index.html').write_text(html,'utf-8')
+          print('GitHub Pages: static HTML verified; MySQL remains behind remote PHP API')
+          PY
+          touch _site/.nojekyll
+          test "$(find _site -type f | wc -l)" = "2"
+          test ! -e _site/config.local.php
+          test ! -e _site/api.php
+          test ! -e _site/php
+          du -h _site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy UI to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
