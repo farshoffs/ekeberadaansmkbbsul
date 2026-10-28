@@ -7,13 +7,34 @@ ini_set('log_errors', '1');
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
+
+// The GitHub Pages frontend makes cross-origin JSON requests to this PHP API.
+// Whitelist only the deployed Pages origin and the existing cPanel origin.
+$ekOrigin = rtrim((string)($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
+if ($ekOrigin !== '') {
+    $requestHost = strtolower((string)parse_url($ekOrigin, PHP_URL_HOST));
+    $serverHost = strtolower((string)parse_url('https://'.($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+    $isHostingOrigin = $requestHost !== '' && $requestHost === $serverHost
+        && in_array(parse_url($ekOrigin, PHP_URL_SCHEME), array('https', 'http'), true);
+    $isPagesOrigin = $ekOrigin === 'https://farshoffs.github.io';
+    if (!$isHostingOrigin && !$isPagesOrigin) {
+        http_response_code(403);
+        echo json_encode(array('ok'=>false,'error'=>'Origin not authorized'));
+        exit;
+    }
+    header('Access-Control-Allow-Origin: '.$ekOrigin);
+    header('Access-Control-Allow-Headers: Content-Type');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Max-Age: 600');
+    header('Vary: Origin', false);
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code($ekOrigin !== '' ? 204 : 400);
+    exit;
+}
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['ok'=>false,'error'=>'POST sahaja']); exit; }
 if (stripos((string)($_SERVER['CONTENT_TYPE']??''),'application/json')===false) {
     http_response_code(415); echo json_encode(['ok'=>false,'error'=>'JSON required']); exit;
-}
-$origin=$_SERVER['HTTP_ORIGIN']??'';
-if ($origin && parse_url($origin,PHP_URL_HOST)!==($_SERVER['HTTP_HOST']??'')) {
-    http_response_code(403); echo json_encode(['ok'=>false,'error'=>'Origin denied']); exit;
 }
 try {
     // Load only core MySQL code on login. Workspace may be unavailable,
