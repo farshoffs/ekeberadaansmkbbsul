@@ -1,3 +1,4 @@
+// Manual Pages publish trigger via GitHub App (not GITHUB_TOKEN).
 // Retire the previous Google Sheets PWA service worker.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => {
