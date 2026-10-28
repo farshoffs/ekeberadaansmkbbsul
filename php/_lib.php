@@ -68,14 +68,14 @@ function user_by_email(string $e, bool $active=true): ?array {
 }
 function public_user(array $u): array {
     $e=(string)$u['emel'];
-    $auth=one('SELECT email FROM web_auth WHERE email=?',[$e]);
+    $auth=one('SELECT email,must_change_pin FROM web_auth WHERE email=?',[$e]);
     return ['active'=>(bool)$u['aktif'],'name'=>$u['nama'],'email'=>$e,'category'=>$u['kategori'],
        'jobTitle'=>$u['jawatan']??'','isAdmin'=>(bool)$u['pentadbir'],'canManageAbsence'=>(bool)$u['pentadbir']||($u['kategori']==='Pengurusan'),
        'lateAfter'=>$u['waktulewat']??'','maxPunchIn'=>$u['maksmasuk']??'',
        'punchOutFrom'=>$u['waktubalik']??'','s1In'=>$u['sesi1masuk']??'','s1Out'=>$u['sesi1keluar']??'',
        's2In'=>$u['sesi2masuk']??'','s2Out'=>$u['sesi2keluar']??'',
        'note'=>$u['catatan']??'','pinSet'=>(bool)$auth,'passwordSet'=>(bool)$auth,
-       'mustChangePassword'=>!$auth,'isLocked'=>false,'lockedUntil'=>'',
+       'mustChangePassword'=>!$auth || (bool)($auth['must_change_pin']??false),'isLocked'=>false,'lockedUntil'=>'',
        'hasProfilePhoto'=>false,'authType'=>$auth?'PHP_PIN_V1':'UNPROVISIONED','sessionVersion'=>1];
 }
 function settings_raw(): array {
@@ -141,13 +141,17 @@ function bootstrap(array $u): array {
         'locationReady'=>(strtoupper((string)($s['SYSTEM_MODE']??'REAL'))==='TEST'||($p['schoolLat']!==''&&$p['schoolLng']!=='')),
         'attendance'=>attendance_public(attendance_row((string)$u['emel'],today()),schedule($u,$s))];
 }
-function require_user($token,bool $admin=false): array {
+function require_user($token,bool $admin=false,bool $enforcePinChange=true): array {
     $hash=hash('sha256',(string)$token);
     $sess=one('SELECT email,expires_at FROM web_sessions WHERE token_hash=? AND expires_at>UTC_TIMESTAMP()',[$hash]);
     if (!$sess) throw new RuntimeException('Sesi tamat. Sila log masuk semula.');
     $u=user_by_email((string)$sess['email']);
     if (!$u) throw new RuntimeException('Akaun tidak aktif.');
     if ($admin && !(bool)$u['pentadbir']) throw new RuntimeException('Akses pentadbir tidak dibenarkan.');
+    if ($enforcePinChange) {
+        $auth=one('SELECT must_change_pin FROM web_auth WHERE email=?',[(string)$u['emel']]);
+        if (!$auth || (bool)$auth['must_change_pin']) throw new RuntimeException('PIN sementara mesti ditukar dahulu. Tekan Tukar PIN.');
+    }
     return $u;
 }
 function create_session(array $u): array {
