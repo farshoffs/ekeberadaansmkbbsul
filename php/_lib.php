@@ -40,7 +40,10 @@ function date_key($x): string {
     return substr((string)$x,0,10);
 }
 function excel_number($x): float {
-    return ($x instanceof DateTimeInterface ? (float)$x->getTimestamp() : strtotime((string)$x)) /86400+25569;
+    // Excel serial values represent local wall-clock time, not UTC instants.
+    $d=$x instanceof DateTimeInterface ? DateTimeImmutable::createFromInterface($x)
+        : new DateTimeImmutable((string)$x,new DateTimeZone('Asia/Kuala_Lumpur'));
+    return ((float)$d->format('U') + $d->getOffset())/86400+25569;
 }
 function time_text($x): string {
     if ($x === null || $x === '') return '';
@@ -83,6 +86,10 @@ function settings_raw(): array {
      'MAX_GPS_ACCURACY_M'=>'120','DEFAULT_S1_IN'=>'07:30','DEFAULT_S1_OUT'=>'16:30','DEFAULT_MAX_PUNCH_IN'=>'10:00',
      'ALLOW_OPTIONAL_SECOND_SESSION'=>'TRUE','ABSENT_AFTER'=>'10:00','SYSTEM_START_DATE'=>'2026-01-01'];
     foreach (rows('SELECT kunci,nilai FROM tetapan') as $r) if ($r['kunci']) $defaults[$r['kunci']]=$r['nilai'];
+    // Exported Excel settings may store times as fractional-day numeric strings.
+    foreach (['DEFAULT_LATE_AFTER','DEFAULT_MAX_PUNCH_IN','DEFAULT_PUNCH_OUT_FROM','DEFAULT_S1_IN','DEFAULT_S1_OUT','DEFAULT_S2_IN','DEFAULT_S2_OUT','ABSENT_AFTER','PUNCH_REMINDER_TIME','THURSDAY_WBF_IN_FROM','THURSDAY_WBF_IN_TO','THURSDAY_WBF_OUT_FROM','THURSDAY_WBF_OUT_TO'] as $key) {
+        if (isset($defaults[$key]) && $defaults[$key]!=='') $defaults[$key]=time_text($defaults[$key]);
+    }
     return $defaults;
 }
 function public_settings(array $s): array {
