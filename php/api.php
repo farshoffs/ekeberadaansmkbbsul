@@ -257,23 +257,176 @@ function punch_mysql(array $u,string $type,$location): array {
     } catch(Throwable $e) { if(db()->inTransaction())db()->rollBack(); throw $e; }
     finally { one('SELECT RELEASE_LOCK(?) AS released',[$lock]); }
 }
+/**
+ * MySQL counterpart of refactor/performance-v2:
+ * apps-script/20_UserApi.gs buildPunchCardMonthForUser_.
+ * The original workbook's Sesi 1 DATETIME and Sesi 2 Excel serial columns
+ * are normalized by time_text(). All calendar/read overlays remain read-only.
+ */
 function punch_card(array $u,string $month): array {
-    if ($month==='')$month=substr(today(),0,7);
-    if (!preg_match('/^\d{4}-(?:0[1-9]|1[0-2])$/',$month)) throw new InvalidArgumentException('Bulan tidak sah.');
-    $r=rows("SELECT * FROM kehadiran WHERE emel=? AND tarikh>=? AND tarikh<? ORDER BY tarikh,_row_id",
-      [$u['emel'],$month.'-01',date('Y-m-d',strtotime($month.'-01 +1 month'))]);
-    $sch=schedule($u,settings_raw());$byDay=[];
-    foreach($r as $x) {
-        $p=attendance_public($x,$sch);$day=(int)substr($x['tarikh'],8,2);
-        $byDay[$day]=['day'=>$day,'date'=>$x['tarikh'],'status'=>$p['status'],'inTime'=>$p['inTime'],
-         'outTime'=>$p['outTime'],'inTime2'=>$p['inTime2'],'outTime2'=>$p['outTime2'],'statusFlags'=>$p['statusFlags'],
-         'source'=>$x['sumber']??'','editedBy'=>$x['disuntingoleh']??'','reason'=>$x['sebabedit']??'','reviewItems'=>[]];
+    if ($month==='') $month=substr(today(),0,7);
+    if (!preg_match('/^(20\d\d|21\d\d)-(0[1-9]|1[0-2])$/',$month))
+        throw new InvalidArgumentException('Bulan tidak sah.');
+    $start=$month.'-01';
+    $days=(int)(new DateTimeImmutable($start))->format('t');
+    $end=$month.'-'.str_pad((string)$days,2,'0',STR_PAD_LEFT);
+    $s=settings_raw();
+    $systemStart=date_key($s['SYSTEM_START_DATE']??'2026-01-01');
+    if (!$systemStart) $systemStart='2026-01-01';
+    $sch=schedule($u,$s);
+    $att=rows('SELECT * FROM kehadiran WHERE LOWER(emel)=? AND tarikh BETWEEN ? AND ? ORDER BY tarikh,_row_id',
+        [strtolower((string)$u['emel']),$start,$end]);
+    $byDay=[];
+    foreach($att as $x) {
+        $date=date_key($x['tarikh']??'');
+        if ($date<$systemStart || $date<$start || $date>$end) continue;
+        $day=(int)substr($date,8,2);
+        $p=attendance_public($x,$sch);
+        $in=$p['inTime'];$out=$p['outTime'];$in2=$p['inTime2'];$out2=$p['outTime2'];
+        $flagText=strtoupper(trim((string)($x['statuswaktu']??'')));
+        $storedStatus=strtoupper(trim((string)($x['status']??'')));
+        $flags=[];
+        foreach(['LEWAT','BALIK AWAL'] as $flag) {
+            if (str_contains($flagText,$flag)||str_contains($storedStatus,$flag)) $flags[]=$flag;
+        }
+        $status=$storedStatus==='TIDAK HADIR'?'TIDAK HADIR':
+            ($in? (count($flags)?implode(' / ',$flags):'HADIR'):$storedStatus);
+        $source=strtoupper(trim((string)($x['sumber']??'')));
+        $editRaw=trim((string)($x['extra_aj']??''));
+        $edited=$editRaw?array_values(array_intersect(
+            array_map('trim',explode(',',strtoupper($editRaw))),['IN','OUT','IN2','OUT2'])):[];
+        if (!$editRaw&&$source==='ADMIN') {
+            if ($in) $edited[]='IN';
+            if ($out) $edited[]='OUT';
+            if ($in2) $edited[]='IN2';
+            if ($out2) $edited[]='OUT2';
+        }
+        $byDay[$day]=['day'=>$day,'date'=>$date,'status'=>$status,
+            'inTime'=>$in,'outTime'=>$out,'inTime2'=>$in2,'outTime2'=>$out2,
+            'statusFlags'=>$flags,'source'=>(string)($x['sumber']??''),
+            'editedBy'=>(string)($x['disuntingoleh']??''),
+            'reason'=>(string)($x['sebabedit']??''),
+            'adminEditedFields'=>$edited,'adminEditMetadataKnown'=>$editRaw!=='',
+            'reviewState'=>'','reviewItems'=>[]];
     }
-    ksort($byDay);
-    return ['month'=>$month,'daysInMonth'=>(int)date('t',strtotime($month.'-01')),
-       'cardNumber'=>str_pad((string)($u['_source_row']??1),3,'0',STR_PAD_LEFT),
-       'schoolName'=>settings_raw()['SCHOOL_NAME'],'department'=>settings_raw()['SCHOOL_NAME'],
-       'user'=>public_user($u),'records'=>array_values($byDay)];
+    // Refactor/performance-v2 overlays public holidays and configured weekends,
+    // but never hides actual staff punches.
+    $weekdays=array_filter(array_map('trim',explode(',',strtoupper((string)($s['WORKING_DAYS']??'SUN,MON,TUE,WED,THU')))));
+    $weekDays=array_fill_keys($weekdays,true);
+    $holidayRows=rows('SELECT tarikh,nama,jenis,sumber FROM cuti_umum WHERE tarikh BETWEEN ? AND ? AND (aktif=1 OR aktif IS NULL)',
+        [$start,$end]);
+    $holidays=[];
+    foreach($holidayRows as $h) $holidays[date_key($h['tarikh'])]=$h;
+    $isRecorded=static fn($row)=>!empty($row['inTime'])||!empty($row['outTime'])||!empty($row['inTime2'])||!empty($row['outTime2']);
+    $empty=static fn($day,$date)=>[
+        'day'=>$day,'date'=>$date,'status'=>'','inTime'=>'','outTime'=>'',
+        'inTime2'=>'','outTime2'=>'','statusFlags'=>[],'source'=>'','editedBy'=>'',
+        'reason'=>'','adminEditedFields'=>[],'adminEditMetadataKnown'=>false,'reviewState'=>'','reviewItems'=>[]
+    ];
+    for($day=1;$day<=$days;$day++) {
+        $date=$month.'-'.str_pad((string)$day,2,'0',STR_PAD_LEFT);
+        if ($date<$systemStart) continue;
+        $row=$byDay[$day]??$empty($day,$date);
+        if ($isRecorded($row)) continue;
+        $holiday=$holidays[$date]??null;
+        if ($holiday) {
+            $row['status']='PUBLIC_HOLIDAY';$row['source']='CUTI_UMUM';
+            $row['reason']=(string)($holiday['nama']??'CUTI UMUM');
+            $row['holiday']=['date'=>$date,'name'=>$row['reason'],'type'=>$holiday['jenis']??''];
+            $row['editedBy']='SISTEM';$byDay[$day]=$row;continue;
+        }
+        $weekday=strtoupper(date('D',strtotime($date)));
+        if (!isset($weekDays[$weekday])) {
+            $row['status']='WEEKEND';$row['source']='WEEKEND';
+            $row['reason']=$weekday==='FRI'?'JUMAAT':($weekday==='SAT'?'SABTU':'CUTI');
+            $row['editedBy']='SISTEM';$byDay[$day]=$row;
+        }
+    }
+
+    $abs=rows('SELECT * FROM tidak_hadir WHERE LOWER(emel)=? AND tarikhmula<=? AND tarikhakhir>=? ORDER BY _row_id DESC',
+        [strtolower((string)$u['emel']),(int)excel_number($end),(int)excel_number($start)]);
+    $absence=[];$presence=[];
+    foreach($abs as $row) {
+        $status=strtoupper(trim((string)($row['status']??'')));
+        if (!in_array($status,['MENUNGGU','DILULUSKAN'],true))continue;
+        $mode=strtoupper(trim((string)($row['mod']??'')))==='KEBERADAAN'?'KEBERADAAN':'TIDAK_HADIR';
+        $from=date_key($row['tarikhmula']);$to=date_key($row['tarikhakhir']);
+        if($from>$end||$to<$start)continue;
+        $item=['from'=>$from,'to'=>$to,'type'=>(string)$row['jenis'],'status'=>$status,
+           'reviewedBy'=>$row['disemakoleh']??'','note'=>$row['catatan']??'',
+           'startTime'=>time_text($row['masamula']??''),'endTime'=>time_text($row['masaakhir']??'')];
+        if($mode==='KEBERADAAN')$presence[]=$item;else $absence[]=$item;
+    }
+    $today=today();$now=time_text(now_myt());$absentAfter=time_text($s['ABSENT_AFTER']??'10:00');
+    for($day=1;$day<=$days;$day++){
+        $date=$month.'-'.str_pad((string)$day,2,'0',STR_PAD_LEFT);
+        if($date<$systemStart||$date>$today)continue;
+        $weekday=strtoupper(date('D',strtotime($date)));
+        if(!isset($weekDays[$weekday]))continue;
+        $row=$byDay[$day]??$empty($day,$date);
+        if(in_array($row['status'],['PUBLIC_HOLIDAY','WEEKEND'],true))continue;
+        $presenceReq=null;$absenceReq=null;
+        foreach($presence as $x)if($x['from']<=$date&&$x['to']>=$date){$presenceReq=$x;break;}
+        foreach($absence as $x)if($x['from']<=$date&&$x['to']>=$date){$absenceReq=$x;break;}
+        if($presenceReq){
+            // Latest branch enriches Kenyataan even when punched.
+            $row['presenceType']=$presenceReq['type'];
+            $row['reason']=$presenceReq['type'].' — Maklum from Pengetua';
+        }
+        if($isRecorded($row)||strtoupper((string)$row['status'])==='TIDAK HADIR') {
+            $byDay[$day]=$row;continue;
+        }
+        if($presenceReq) {
+            $row['status']='BELUM HADIR';$row['source']='KEBERADAAN';
+            $row['editedBy']=$presenceReq['reviewedBy'];
+            $byDay[$day]=$row;continue;
+        }
+        $due=$date<$today || ($date===$today&&($absentAfter===''||$now>=$absentAfter));
+        if(!$absenceReq&&!$due)continue;
+        $row['status']='TIDAK HADIR';
+        $row['source']=$absenceReq?'TIDAK_HADIR':'AUTO_TIDAK_HADIR';
+        $row['editedBy']=$absenceReq?($absenceReq['reviewedBy']?:'SISTEM'):'SISTEM';
+        $row['reason']=$absenceReq?($absenceReq['type'].($absenceReq['status']==='MENUNGGU'?' — MENUNGGU KELULUSAN':'')):'TIADA PENJELASAN';
+        $byDay[$day]=$row;
+    }
+
+    // Existing reviews are durable in semakan_waktu. Show accurate flags
+    // and reviewers without rewriting source attendance records.
+    $reviews=rows('SELECT * FROM semakan_waktu WHERE LOWER(emel)=? AND tarikh BETWEEN ? AND ? ORDER BY _row_id',
+        [strtolower((string)$u['emel']),$start,$end]);
+    $reviewByDate=[];
+    foreach($reviews as $r) $reviewByDate[date_key($r['tarikh'])][]=$r;
+    $reviewerCache=[];
+    foreach($byDay as &$r){
+        $reviewItems=[];
+        foreach($reviewByDate[$r['date']]??[] as $rev) {
+            $reviewer=strtolower((string)($rev['disemakoleh']??''));
+            if(!array_key_exists($reviewer,$reviewerCache)) {
+                $p=$reviewer!==''?user_by_email($reviewer,false):null;
+                $reviewerCache[$reviewer]=$p?($p['jawatan']??''):'';
+            }
+            $reviewItems[]=[
+                'type'=>strtoupper(trim((string)($rev['jenis']??''))),
+                'session'=>(int)($rev['sesi']?:1),
+                'reviewStatus'=>(string)($rev['statussemakan']??''),
+                'reviewerJobTitle'=>$reviewerCache[$reviewer],
+                'reviewedAt'=>date_key($rev['disemakpada']??''),
+                'comment'=>(string)($rev['ulasan']??'')
+            ];
+        }
+        $r['reviewItems']=$reviewItems;
+        $statuses=array_filter(array_map(static fn($v)=>strtoupper(trim((string)$v['reviewStatus'])),$reviewItems));
+        $r['reviewState']=$statuses?
+            (in_array('DIAMBIL MAKLUM',$statuses,true)?'DIAMBIL MAKLUM':(in_array('DITOLAK',$statuses,true)?'DITOLAK':'BELUM DIAMBIL MAKLUM')):
+            (count($r['statusFlags'])?'BELUM DIAMBIL MAKLUM':'');
+    }
+    unset($r);
+    ksort($byDay,SORT_NUMERIC);
+    return ['month'=>$month,'daysInMonth'=>$days,
+      'cardNumber'=>str_pad((string)max(1,(int)($u['_source_row']??2)-1),3,'0',STR_PAD_LEFT),
+      'schoolName'=>$s['SCHOOL_NAME']??'SMK Bandar Baru Sungai Lalang',
+      'department'=>$s['SCHOOL_NAME']??'SMK Bandar Baru Sungai Lalang',
+      'user'=>public_user($u),'records'=>array_values($byDay)];
 }
 function admin_data(array $admin,string $day): array {
     $day=valid_day($day);$us=rows('SELECT * FROM pengguna WHERE nama IS NOT NULL AND emel IS NOT NULL ORDER BY nama');
