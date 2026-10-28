@@ -59,7 +59,7 @@ Do not use `/php/index.php` as the public login link. It is still a supporting r
 - Check `https://YOUR-DOMAIN/ekeberadaansmkbbsul/php/config.local.php` **does not reveal the PHP source**; Apache should reject direct access. If PHP source is exposed or `.htaccess` isn't enforced, fix hosting permissions before proceeding.
 - Rotate the database password previously shared, and keep it only in the private server config. Never upload a SQL dump or personnel data to the public repository.
 - GitHub Actions verifies PHP syntax, client JavaScript syntax, and that the root index.php renders the PHP interface; actual database connectivity must be verified on your hosting.
-- If you imported an **older** `schema.sql` that lacks the `must_change_pin` column, run the following query in phpMyAdmin **once** before importing the current `schema.sql`: `ALTER TABLE web_auth ADD COLUMN must_change_pin TINYINT(1) NOT NULL DEFAULT 0;`
+- **Existing deployments:** Import the latest `php/schema.sql` through phpMyAdmin again. It checks and adds `must_change_pin` only when missing; existing PIN hashes and data stay intact. If login still returns HTTP 422, the updated error message identifies whether it is a MySQL connection, permissions, missing table or schema problem. In Chrome DevTools → Network → `api.php` → Response, inspect the `error` value (do not share secrets).
 - Old Apps Script PIN hashes and session tokens aren't valid in PHP. Users need new PHP PINs.
 - **Staging limitations:** automated emails and background jobs, Drive photos, Google Docs/PDF and Sheets exports, advanced WBF/IP rules and unexplained-absence/time-review derivations are not fully ported. Do not run both implementations as live punch recorders; they write to different stores.
 
