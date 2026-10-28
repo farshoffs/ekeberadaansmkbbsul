@@ -1,4 +1,4 @@
-name: Deploy eKeberadaan UI to GitHub Pages
+name: Publish eKeberadaan MySQL UI to gh-pages
 on:
   push:
     branches: [main]
@@ -13,64 +13,107 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: github-pages
+  group: ekeberadaan-publish-gh-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Render static UI with the remote cPanel API
+        with:
+          persist-credentials: true
+      - name: Generate static site using same tested PHP/MySQL frontend renderer
         env:
           EKE_PUBLIC_API_URL: https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php
         run: |
           set -euo pipefail
-          mkdir -p _site
           php -l php/index.php
           node --check < Scripts.html
-          php index.php > _site/index.html
+          mkdir -p /tmp/eke-pages-dist
+          php index.php > /tmp/eke-pages-dist/index.html
           python3 - <<'PY'
           from pathlib import Path
-          html=Path('_site/index.html').read_text('utf-8')
-          assert html.lstrip().lower().startswith('<!doctype html>'), 'HTML renderer failed'
-          assert 'fetch("https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php"' in html, 'Remote PHP API URL missing'
-          assert 'google.script.run' not in html, 'Original Google Sheets RPC leaked into static frontend'
-          assert "credentials:'omit'" in html, 'Remote API should never use cookies'
-          assert 'config.local.php' not in html, 'Hosting config reference unexpectedly rendered'
-          html=html.replace('</head>', '<meta name="robots" content="noindex,nofollow"></head>', 1)
-          Path('_site/index.html').write_text(html,'utf-8')
-          print('PASS: static GitHub Pages UI, cPanel API, no PHP files or DB credentials')
+          file=Path('/tmp/eke-pages-dist/index.html')
+          html=file.read_text(encoding='utf-8')
+          endpoint='https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php'
+          assert html.lstrip().lower().startswith('<!doctype html>')
+          assert 'fetch("'+endpoint+'"' in html, 'Compiled Pages UI is not using the PHP/MySQL API'
+          assert 'google.script.run' not in html, 'Legacy Google Sheets RPC is present'
+          assert "credentials:'omit'" in html, 'Remote frontend must avoid cross-site cookies'
+          assert 'ppdkmyna_ekeberadaansmkbbsul' not in html, 'Database name should never be embedded'
+          assert 'EK_PASSWORD_PEPPER' not in html
+          assert 'EK_WORKSPACE_BRIDGE_SECRET' not in html
+          assert '<style>' in html and '</style>' in html
+          # Old gh-pages app used a cache-first PWA service worker.
+          # Unregister it and remove only caches created by that older app.
+          cleanup = """
+          <script>
+          (() => {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                  if (registration.scope.startsWith(location.origin + '/ekeberadaansmkbbsul/'))
+                    registration.unregister().catch(() => {});
+                });
+              }).catch(() => {});
+            }
+            if ('caches' in window) caches.keys().then(keys =>
+              Promise.all(keys.filter(key => key.startsWith('eke-static-')).map(key => caches.delete(key)))
+            ).catch(() => {});
+          })();
+          </script>
+          """
+          assert '</head>' in html
+          html=html.replace('</head>', '<meta name="robots" content="noindex,nofollow">'+cleanup+'</head>',1)
+          file.write_text(html,encoding='utf-8')
+          print('PASS: static UI calls remote PHP/MySQL API; no Google Sheets RPC')
           PY
-          touch _site/.nojekyll
-          test "$(find _site -type f | wc -l)" = "2"
-          test ! -e _site/api.php
-          test ! -e _site/php
-      - name: Save preview HTML
-        uses: actions/upload-artifact@v4
-        with:
-          name: ekeberadaansmkbbsul-pages-html
-          path: _site/index.html
-          retention-days: 14
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - name: Deploy UI
-        id: deployment
-        uses: actions/deploy-pages@v4
+          cat > /tmp/eke-pages-dist/sw.js <<'JS'
+          // Retire the previous Google Sheets PWA service worker.
+          self.addEventListener('install', () => self.skipWaiting());
+          self.addEventListener('activate', event => {
+            event.waitUntil((async () => {
+              const keys=await caches.keys();
+              await Promise.all(keys.filter(k => k.startsWith('eke-static-')).map(k => caches.delete(k)));
+              await self.registration.unregister();
+              const tabs=await self.clients.matchAll({type:'window'});
+              tabs.forEach(tab => tab.navigate(tab.url).catch(() => {}));
+            })());
+          });
+          JS
+          touch /tmp/eke-pages-dist/.nojekyll
+          test "$(find /tmp/eke-pages-dist -type f | wc -l)" = 3
+          grep -Fq "$EKE_PUBLIC_API_URL" /tmp/eke-pages-dist/index.html
+      - name: Replace live gh-pages entry without exposing PHP or MySQL configuration
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin gh-pages
+          git worktree add --detach /tmp/eke-pages-branch origin/gh-pages
+          cp /tmp/eke-pages-dist/index.html /tmp/eke-pages-branch/index.html
+          cp /tmp/eke-pages-dist/sw.js /tmp/eke-pages-branch/sw.js
+          cp /tmp/eke-pages-dist/.nojekyll /tmp/eke-pages-branch/.nojekyll
+          cd /tmp/eke-pages-branch
+          git add index.html sw.js .nojekyll
+          if git diff --cached --quiet; then
+            echo 'Static site is already current.'
+          else
+            git commit -m 'deploy: MySQL-backed eKeberadaan UI (no Apps Script DB)'
+            git push origin HEAD:gh-pages
+          fi
+      - name: Verify public entry file in gh-pages branch
+        run: |
+          set -euo pipefail
+          git fetch origin gh-pages
+          git show origin/gh-pages:index.html > /tmp/eke-published-check.html
+          grep -Fq 'https://ppdkmy.edu.my/ekeberadaansmkbbsul/api.php' /tmp/eke-published-check.html
+          if grep -Fq 'google.script.run' /tmp/eke-published-check.html; then
+            echo 'Published branch still contains Google Sheets RPC'
+            exit 1
+          fi
+          echo 'gh-pages branch now contains the MySQL frontend.'
