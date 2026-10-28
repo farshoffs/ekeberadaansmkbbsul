@@ -37,10 +37,11 @@ For now, absence approval updates the request record, not every derived attendan
 
 ## Quick checks
 
-1. Run: php -l php/_lib.php && php -l php/api.php && php -l php/index.php && php -l php/cli_set_pin.php
-2. Visit /php/index.php over HTTPS and check the browser Network tab for POST to php/api.php.
-3. Login only after php/schema.sql and a PHP PIN are created.
-4. Verify read-only history from punch cards and admin screens.
-5. Record one test punch in a staging database; compare fields in MySQL.
+1. On hosting cPanel Terminal, run **php php/cli_check_db.php**. It checks required tables and database connectivity without printing secrets.
+2. Run: php -l php/_lib.php && php -l php/api.php && php -l php/index.php && php -l php/cli_set_pin.php
+3. Visit /php/index.php over HTTPS and check the browser Network tab for POST to php/api.php.
+4. Login only after php/schema.sql and a PHP PIN are created.
+5. Verify read-only history from punch cards and admin screens.
+6. Record one test punch in a staging database; compare fields in MySQL.
 
 This repository DOES NOT by itself configure or upload anything to the live cPanel database; PHP must be deployed on that server, with a server-side config, and the private data imported separately.
