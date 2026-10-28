@@ -1,3 +1,6 @@
+> **PHP/MySQL migration available (staging):** [php/README.md](php/README.md) · [PHP frontend](php/index.php) · [MySQL API](php/api.php) · [additional database schema](php/schema.sql).
+> The live Google Apps Script app remains separate. This repo's PHP files must be deployed to a PHP hosting server, not GitHub Pages. Never put database passwords or live SQL dumps in GitHub.
+
 # eKeberadaan SMKBBSUL
 
 Baseline awal: **Global Login Fix**.
