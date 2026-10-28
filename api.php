@@ -11,6 +11,48 @@ ini_set('log_errors', '1');
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
+/*
+ * This diagnostic is deliberately handled BEFORE loading php/api.php,
+ * _lib.php or database credentials. It must work even if an uploaded
+ * dependency is missing or a newer PHP construct cannot be parsed.
+ * Remove the diagnostic route once the hosting installation is fixed.
+ */
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['health'] ?? '') === '1') {
+    http_response_code(200);
+    echo json_encode([
+        'ok'=>true,
+        'stage'=>'root-gateway',
+        'php8Plus'=>PHP_VERSION_ID>=80000,
+        'pdoMysql'=>extension_loaded('pdo_mysql'),
+        'phpApiReadable'=>is_readable(__DIR__.'/php/api.php'),
+        'libraryReadable'=>is_readable(__DIR__.'/php/_lib.php'),
+        'configFilePresent'=>is_file(__DIR__.'/php/config.local.php')
+    ]);
+    exit;
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' &&
+    stripos((string)($_SERVER['CONTENT_TYPE'] ?? ''),'application/json') !== false) {
+    $raw = file_get_contents('php://input');
+    if (is_string($raw) && strlen($raw) <= 512) {
+        $req = json_decode($raw,true);
+        if (is_array($req) && ($req['fn'] ?? null) === 'getApiStatus' &&
+            ($req['args'] ?? null) === []) {
+            http_response_code(200);
+            echo json_encode([
+                'ok'=>true,
+                'result'=>['healthy'=>true,'backend'=>'PHP root gateway'],
+                'diagnostic'=>[
+                    'php8Plus'=>PHP_VERSION_ID>=80000,
+                    'pdoMysql'=>extension_loaded('pdo_mysql'),
+                    'phpApiReadable'=>is_readable(__DIR__.'/php/api.php'),
+                    'libraryReadable'=>is_readable(__DIR__.'/php/_lib.php'),
+                    'configFilePresent'=>is_file(__DIR__.'/php/config.local.php')
+                ]
+            ]);
+            exit;
+        }
+    }
+}
 ob_start();
 
 try {
