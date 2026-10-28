@@ -34,21 +34,32 @@ function rpc(string $fn,array $a) {
         if (!$u) throw new RuntimeException('Akaun tidak didaftarkan atau tidak aktif.');
         $pu=public_user($u);
         return ['ok'=>true,'user'=>['name'=>$pu['name'],'email'=>$pu['email'],'category'=>$pu['category'],'jobTitle'=>$pu['jobTitle']],
-          'pinReady'=>true,'directPinSetup'=>false,'changeTicket'=>'','setupPurpose'=>'',
-          'message'=>$pu['pinSet']?'':'PIN MySQL belum diaktifkan oleh pentadbir.'];
+          'pinReady'=>$pu['pinSet'],'directPinSetup'=>false,'changeTicket'=>'','setupPurpose'=>'',
+          'message'=>$pu['pinSet']?'':'Rekod PIN tidak dijumpai. Hubungi Pentadbir Sistem.'];
       case 'loginWithPin':
         $email=email_key($a[0]??'');$pin=(string)($a[1]??'');
         if (!preg_match('/^\d{6}$/',$pin)) throw new RuntimeException('Masukkan PIN 6 digit.');
         $u=user_by_email($email);
+        if (!$u) throw new RuntimeException('Emel atau PIN tidak tepat.');
         $auth=one('SELECT * FROM web_auth WHERE email=?',[$email]);
-        if (!$u||!$auth) throw new RuntimeException('Akaun belum diaktifkan untuk versi MySQL. Hubungi pentadbir.');
-        if ($auth['locked_until'] && strtotime($auth['locked_until']) > time())
-            throw new RuntimeException('Terlalu banyak percubaan. Cuba lagi selepas 15 minit.');
-        if (!password_verify($pin,$auth['pin_hash'])) {
-            execute_sql('UPDATE web_auth SET attempts=attempts+1,locked_until=IF(attempts>=4,DATE_ADD(NOW(),INTERVAL 15 MINUTE),NULL) WHERE email=?',[$email]);
-            throw new RuntimeException('Emel atau PIN tidak tepat.');
+        if (!$auth) {
+            // Transparent first-login migration of already imported PIN_V1 credentials.
+            // This requires the original Apps Script pepper in private server config.
+            legacy_pin_migrate($pin,$u);
+            $auth=one('SELECT * FROM web_auth WHERE email=?',[$email]);
+            if (!$auth) throw new RuntimeException('Gagal menyegerakkan PIN ke MySQL. Cuba lagi.');
+            audit_event($email,'MIGRASI_PIN_GOOGLE_SHEETS',$email,'Hash PIN ditukar kepada format PHP selepas disahkan.');
+        } else {
+            // Once a PHP PIN exists, never fall back to the old Sheets hash:
+            // admin reset / self-change must permanently invalidate the old PIN.
+            if ($auth['locked_until'] && strtotime($auth['locked_until']) > time())
+                throw new RuntimeException('Terlalu banyak percubaan. Cuba lagi selepas 15 minit.');
+            if (!password_verify($pin,$auth['pin_hash'])) {
+                execute_sql('UPDATE web_auth SET attempts=attempts+1,locked_until=IF(attempts>=4,DATE_ADD(NOW(),INTERVAL 15 MINUTE),NULL) WHERE email=?',[$email]);
+                throw new RuntimeException('Emel atau PIN tidak tepat.');
+            }
+            execute_sql('UPDATE web_auth SET attempts=0,locked_until=NULL WHERE email=?',[$email]);
         }
-        execute_sql('UPDATE web_auth SET attempts=0,locked_until=NULL WHERE email=?',[$email]);
         audit_event($email,'LOGIN_APLIKASI',$email,'PHP MySQL');
         return create_session($u);
       case 'resumeSession':
