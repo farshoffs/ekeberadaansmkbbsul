@@ -1,0 +1,57 @@
+name: Build cPanel upload package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Index.html'
+      - 'Logo.html'
+      - 'Scripts.html'
+      - 'Styles.html'
+      - 'index.php'
+      - 'api.php'
+      - '.htaccess'
+      - 'php/**'
+      - '.github/workflows/cpanel-package.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate core PHP files and latest frontend
+        run: |
+          set -eu
+          php -l index.php
+          php -l api.php
+          php -l php/_lib.php
+          php -l php/api.php
+          php -l php/index.php
+          php php/tests/mysql-time-test.php
+          node --check < Scripts.html
+          php index.php > /tmp/php-frontend.html
+          grep -q 'fetch('\''api.php'\''' /tmp/php-frontend.html
+          if grep -q 'google.script.run' /tmp/php-frontend.html; then
+            echo 'Unexpected Google Apps Script RPC in PHP site'
+            exit 1
+          fi
+      - name: Package only PHP hosting runtime — leave database secrets untouched
+        shell: bash
+        run: |
+          set -eu
+          mkdir -p /tmp/deploy/php
+          cp index.php api.php Index.html Scripts.html Styles.html Logo.html .htaccess /tmp/deploy/
+          cp php/index.php php/api.php php/_lib.php php/pin-ui.js php/.htaccess php/config.local.example.php php/schema.sql /tmp/deploy/php/
+          test ! -e /tmp/deploy/php/config.local.php
+          test ! -e /tmp/deploy/setup.php
+          test ! -e /tmp/deploy/php/setup.php
+          cd /tmp/deploy
+          zip -q -r "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip" .
+          unzip -l "$GITHUB_WORKSPACE/ekeberadaansmkbbsul-cpanel.zip"
+      - name: Attach cPanel ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ekeberadaansmkbbsul-cpanel-package
+          path: ekeberadaansmkbbsul-cpanel.zip
+          retention-days: 14
