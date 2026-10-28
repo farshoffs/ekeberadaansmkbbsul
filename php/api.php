@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
-require __DIR__.'/_lib.php';
+// Include dependencies inside the try block below, so any broken
+// uploaded PHP library or config does not produce a raw HTML 500 page.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 header('Content-Type: application/json; charset=UTF-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -13,6 +16,7 @@ if ($origin && parse_url($origin,PHP_URL_HOST)!==($_SERVER['HTTP_HOST']??'')) {
     http_response_code(403); echo json_encode(['ok'=>false,'error'=>'Origin denied']); exit;
 }
 try {
+    require_once __DIR__.'/_lib.php';
     $input=json_decode((string)file_get_contents('php://input'),true,128,JSON_THROW_ON_ERROR);
     if (!is_array($input)||!is_string($input['fn']??null)||!is_array($input['args']??null)) throw new InvalidArgumentException('Request tidak sah.');
     $result=rpc($input['fn'],$input['args']);
@@ -20,8 +24,13 @@ try {
 } catch (Throwable $e) {
     // Give actionable DB error categories without returning credentials, SQL or PII.
     $safe=$e instanceof PDOException ? database_public_error($e) : $e->getMessage();
-    http_response_code($e instanceof InvalidArgumentException?400:422);
-    error_log('eKeberadaan API: '.get_class($e).' '.$e->getMessage());
+    $reference = strtoupper(bin2hex(random_bytes(4)));
+    $isBootstrap = $e instanceof ParseError || $e instanceof Error;
+    if ($isBootstrap) {
+        $safe = 'Ralat PHP pada hosting. Semak cPanel > Metrics > Errors atau error_log. Rujukan: ' . $reference;
+    }
+    http_response_code($isBootstrap ? 500 : ($e instanceof InvalidArgumentException?400:422));
+    error_log('[eKeberadaan API '.$reference.'] '.get_class($e).' at '.$e->getFile().':'.$e->getLine().' - '.$e->getMessage());
     echo json_encode(['ok'=>false,'error'=>$safe],JSON_INVALID_UTF8_SUBSTITUTE|JSON_UNESCAPED_UNICODE);
 }
 function rpc(string $fn,array $a) {
