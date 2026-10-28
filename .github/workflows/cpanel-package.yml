@@ -30,6 +30,16 @@ jobs:
           php -l php/index.php
           php php/tests/mysql-time-test.php
           node --check < Scripts.html
+          node --check < apps-script/97_WorkspaceBridge.gs
+          php -l php/workspace_bridge.php
+          php -l php/workspace_services.php
+          test "$(grep -ic '</style>' Styles.html)" = "1"
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('Styles.html').read_text()
+          assert s.rstrip().endswith('</style>'), 'Unstyled CSS may leak into body'
+          print('Styles.html output PASS')
+          PY
           php index.php > /tmp/php-frontend.html
           grep -q 'fetch('\''api.php'\''' /tmp/php-frontend.html
           if grep -q 'google.script.run' /tmp/php-frontend.html; then
@@ -42,7 +52,7 @@ jobs:
           set -eu
           mkdir -p /tmp/deploy/php
           cp index.php api.php Index.html Scripts.html Styles.html Logo.html .htaccess /tmp/deploy/
-          cp php/index.php php/api.php php/_lib.php php/pin-ui.js php/.htaccess php/config.local.example.php php/schema.sql /tmp/deploy/php/
+          cp php/index.php php/api.php php/_lib.php php/workspace_bridge.php php/workspace_services.php php/pin-ui.js php/.htaccess php/config.local.example.php php/schema.sql /tmp/deploy/php/
           test ! -e /tmp/deploy/php/config.local.php
           test ! -e /tmp/deploy/setup.php
           test ! -e /tmp/deploy/php/setup.php
