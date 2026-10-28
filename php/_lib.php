@@ -164,7 +164,9 @@ function public_user(array $u): array {
        'note'=>$u['catatan']??'','pinSet'=>$hasPin,'passwordSet'=>$hasPin,
        'mustChangePassword'=>$auth ? (bool)$auth['must_change_pin'] : (bool)($u['wajibtukarpassword']??false),
        'isLocked'=>false,'lockedUntil'=>'',
-       'hasProfilePhoto'=>false,'authType'=>$auth?'PHP_PIN_V1':($legacy?'PIN_V1':'UNPROVISIONED'),'sessionVersion'=>1];
+       'hasProfilePhoto'=>trim((string)($u['fotoprofilfileid']??''))!=='',
+       'profilePhotoVersion'=>(string)($u['fotoprofildikemaskinipada']??'0'),
+       'authType'=>$auth?'PHP_PIN_V1':($legacy?'PIN_V1':'UNPROVISIONED'),'sessionVersion'=>1];
 }
 function settings_raw(): array {
     $defaults=['SCHOOL_NAME'=>'SMK Bandar Baru Sungai Lalang','SYSTEM_MODE'=>'REAL','RADIUS_M'=>'200',
