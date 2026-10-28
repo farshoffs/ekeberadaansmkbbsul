@@ -69,17 +69,88 @@ function email_key($v): string {
 function user_by_email(string $e, bool $active=true): ?array {
     return one('SELECT * FROM pengguna WHERE LOWER(emel)=?'.($active?' AND aktif=1':'').' ORDER BY _row_id LIMIT 1',[$e]);
 }
+
+/**
+ * Compute a Google Apps Script PIN_V1 hash exactly as Code.gs:
+ * HMAC-SHA256(key=EK_PASSWORD_PEPPER, data=PasswordSalt+"\n"+PIN).
+ * Utilities.base64EncodeWebSafe includes "=" padding.
+ * NEVER log or expose either the pepper or PIN.
+ */
+function legacy_pin_hash(string $pin,string $salt,string $pepper): string {
+    return strtr(base64_encode(hash_hmac('sha256',$salt."\n".$pin,$pepper,true)),'+/','-_');
+}
+function legacy_pin_matches(string $pin,array $user,string $pepper): bool {
+    if ($pepper==='' || strtoupper(trim((string)($user['authtype']??''))) !== 'PIN_V1') return false;
+    $salt=(string)($user['passwordsalt']??'');
+    $hash=(string)($user['passwordhash']??'');
+    if ($salt==='' || $hash==='') return false;
+    return hash_equals($hash,legacy_pin_hash($pin,$salt,$pepper));
+}
+function legacy_pin_lock_check(array $user): void {
+    $until=(string)($user['dikuncisehingga']??'');
+    if ($until!=='' && ($t=strtotime($until))!==false && $t>time()) {
+        throw new RuntimeException('Terlalu banyak percubaan PIN. Cuba lagi selepas 15 minit.');
+    }
+}
+function legacy_pin_record_failed(array $user): void {
+    $count=(int)($user['gagallogin']??0);
+    $locked=(string)($user['dikuncisehingga']??'');
+    if ($locked!=='' && ($t=strtotime($locked))!==false && $t<=time()) {
+        $count=0; // Previous 15-minute lock expired.
+    }
+    $count++;
+    execute_sql('UPDATE pengguna SET gagallogin=?,dikuncisehingga=? WHERE _row_id=?',
+        [$count,$count>=5?date('Y-m-d H:i:s',time()+15*60):'',(int)$user['_row_id']]);
+}
+function legacy_pin_migrate(string $pin,array $user): void {
+    // Password hashes in imported PENGGUNA cannot be checked without the
+    // original private Script Property, EK_PASSWORD_PEPPER.
+    $pepper=trim((string)(cfg()['legacy_pin_pepper']??''));
+    if ($pepper==='') throw new RuntimeException(
+        'PIN Google Sheets belum dihubungkan. Pentadbir perlu salin Script Property EK_PASSWORD_PEPPER asal ke php/config.local.php (legacy_pin_pepper). Tidak perlu reset PIN pengguna.'
+    );
+    legacy_pin_lock_check($user);
+    if (!legacy_pin_matches($pin,$user,$pepper)) {
+        legacy_pin_record_failed($user);
+        throw new RuntimeException('Emel atau PIN tidak tepat.');
+    }
+    // Import only an authenticated user. Avoid overwriting any account
+    // already issued a different PHP PIN by an administrator.
+    $hash=password_hash($pin,PASSWORD_DEFAULT);
+    db()->beginTransaction();
+    try {
+        execute_sql('INSERT IGNORE INTO web_auth (email,pin_hash,must_change_pin,attempts,locked_until) VALUES (?,?,0,0,NULL)',
+            [$user['emel'],$hash]);
+        $current=one('SELECT pin_hash FROM web_auth WHERE email=?',[$user['emel']]);
+        if (!$current || !password_verify($pin,(string)$current['pin_hash'])) {
+            throw new RuntimeException('PIN akaun telah ditukar. Sila gunakan PIN PHP terkini.');
+        }
+        execute_sql("UPDATE pengguna SET gagallogin=0,dikuncisehingga='' WHERE _row_id=?",[(int)$user['_row_id']]);
+        db()->commit();
+    } catch (Throwable $e) {
+        if (db()->inTransaction()) db()->rollBack();
+        throw $e;
+    }
+}
+
 function public_user(array $u): array {
     $e=(string)$u['emel'];
     $auth=one('SELECT email,must_change_pin FROM web_auth WHERE email=?',[$e]);
+    // Existing Sheets PIN_V1 hashes are usable during first-login migration.
+    // No user re-registration or PIN reset is needed when legacy_pin_pepper is configured.
+    $legacy = strtoupper(trim((string)($u['authtype']??''))) === 'PIN_V1'
+        && trim((string)($u['passwordsalt']??'')) !== ''
+        && trim((string)($u['passwordhash']??'')) !== '';
+    $hasPin = (bool)$auth || $legacy;
     return ['active'=>(bool)$u['aktif'],'name'=>$u['nama'],'email'=>$e,'category'=>$u['kategori'],
        'jobTitle'=>$u['jawatan']??'','isAdmin'=>(bool)$u['pentadbir'],'canManageAbsence'=>(bool)$u['pentadbir']||($u['kategori']==='Pengurusan'),
        'lateAfter'=>$u['waktulewat']??'','maxPunchIn'=>$u['maksmasuk']??'',
        'punchOutFrom'=>$u['waktubalik']??'','s1In'=>$u['sesi1masuk']??'','s1Out'=>$u['sesi1keluar']??'',
        's2In'=>$u['sesi2masuk']??'','s2Out'=>$u['sesi2keluar']??'',
-       'note'=>$u['catatan']??'','pinSet'=>(bool)$auth,'passwordSet'=>(bool)$auth,
-       'mustChangePassword'=>!$auth || (bool)($auth['must_change_pin']??false),'isLocked'=>false,'lockedUntil'=>'',
-       'hasProfilePhoto'=>false,'authType'=>$auth?'PHP_PIN_V1':'UNPROVISIONED','sessionVersion'=>1];
+       'note'=>$u['catatan']??'','pinSet'=>$hasPin,'passwordSet'=>$hasPin,
+       'mustChangePassword'=>$auth ? (bool)$auth['must_change_pin'] : (bool)($u['wajibtukarpassword']??false),
+       'isLocked'=>false,'lockedUntil'=>'',
+       'hasProfilePhoto'=>false,'authType'=>$auth?'PHP_PIN_V1':($legacy?'PIN_V1':'UNPROVISIONED'),'sessionVersion'=>1];
 }
 function settings_raw(): array {
     $defaults=['SCHOOL_NAME'=>'SMK Bandar Baru Sungai Lalang','SYSTEM_MODE'=>'REAL','RADIUS_M'=>'200',
