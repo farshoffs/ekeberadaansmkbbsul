@@ -1,0 +1,9 @@
+{
+  "name": "ekeberadaansmkbbsul-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Self-hosted frontend dependencies for eKeberadaan GitHub Pages",
+  "dependencies": {
+    "bootstrap": "5.3.3"
+  }
+}
