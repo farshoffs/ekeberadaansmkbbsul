@@ -1,38 +1,66 @@
-# eKeberadaan — PHP/MySQL staging deployment
+# Deploy eKeberadaan in public_html/ekeberadaansmkbbsul
 
-The existing Google Apps Script app in the repository root is preserved. The PHP app is at php/index.php and uses php/api.php. GitHub Pages cannot execute PHP.
+The PHP/MySQL app is a **staging migration**, not yet the complete Apps Script equivalent. Deploy the entire site inside **one folder** named **ekeberadaansmkbbsul**. The default URL is the folder URL; users do not need to type /php/.
 
-## cPanel deployment — no Terminal / SSH required
+## Exact cPanel layout
 
-The destination database already has the 21 tables and 20,202 Excel records. **Do not reimport the full workbook dump**, which drops and recreates those tables. Back up the database before starting.
+```text
+public_html/
+└── ekeberadaansmkbbsul/
+    ├── .htaccess                     ← opens index.php by default
+    ├── index.php                     ← public app entry
+    ├── api.php                       ← public API entry
+    ├── setup.php                     ← one-time browser installer; delete after use
+    ├── Index.html                    ← existing Apps Script UI template
+    ├── Styles.html
+    ├── Scripts.html
+    ├── Logo.html
+    └── php/
+        ├── index.php                 ← actual PHP app renderer
+        ├── api.php                   ← database-backed API handlers
+        ├── _lib.php                  ← PDO connection & helpers
+        ├── setup.php                 ← installer implementation; delete after use
+        ├── schema.sql                ← import once via phpMyAdmin
+        ├── pin-ui.js
+        ├── .htaccess                 ← blocks access to private config
+        ├── config.local.example.php  ← copy to config.local.php on host
+        └── config.local.php          ← create on host only; NEVER upload to GitHub
+```
 
-1. **Import only the extra PHP schema.** Download php/schema.sql from this GitHub repository. Open cPanel > phpMyAdmin > ppdkmyna_ekeberadaansmkbbsul > Import, select schema.sql and submit. This adds web_auth, web_sessions, and web_setup_state.
-2. **Upload the website.** On GitHub, open farshoffs/ekeberadaansmkbbsul > Code > Download ZIP. In cPanel > File Manager > public_html, create a folder such as ekeberadaan, upload ZIP and Extract. If an extra repository-main folder appears, move its contents into the ekeberadaan folder. Index.html and php/index.php must have their relative paths intact.
-3. **Create the private server config.** In File Manager open php/ and copy config.local.example.php to config.local.php. Edit it: host='localhost' (usual when PHP and MySQL run on the same cPanel host), port 3306, the exact database/user names, your rotated database password, and a 64-character random hexadecimal setup_key. Generate a key via the button on /php/setup.php, copy it privately into config.local.php and paste the same key in the form. Do not commit config.local.php.
-4. **Create the first administrator PIN without a Terminal.** Open https://YOUR-DOMAIN/ekeberadaan/php/setup.php. Enter setup_key, an existing ACTIVE account marked Pentadbir Sistem in pengguna, and a new six-digit PIN. Submit. Setup permanently locks itself in web_setup_state after success.
-5. **Disable the installer.** Delete php/setup.php from the deployed server in cPanel File Manager. Also delete setup_key from config.local.php. After a fresh redeployment, remove the deployed setup.php again. Do not delete the lock record.
-6. **Open PHP app.** Go to https://YOUR-DOMAIN/ekeberadaan/php/index.php (not root Index.html, and not GitHub Pages). Log in with your new administrator PIN.
-7. **Enable staff access in the web app.** Admin > Pengguna > Reset PIN or bulk reset generates one-time temporary PINs for staff, shown to the authenticated admin only. Give each PIN directly to the intended person. On login, a staff member must change the temporary PIN before working. The topbar also contains Tukar PIN. Admin PIN resets revoke prior user sessions.
-8. **Test before production.** Check historical records, an admin view, a staff login and one staging punch. Keep the existing Google Apps Script deployment live until the PHP version has been validated.
+Other repository files (Code.gs, README.md, workflows, etc.) are from the original Apps Script project; they are not needed by the PHP runtime. You can leave them inside the deployment folder, but do **not** put anything outside `public_html/ekeberadaansmkbbsul/`.
 
-### Configuration security
+The server's `public_html` folder itself does not change.
 
-Visit https://YOUR-DOMAIN/ekeberadaan/php/config.local.php. It should be forbidden or otherwise return absolutely no content. If it exposes PHP source, do not use the hosting deployment until PHP and .htaccess are fixed. HTTPS is required for the installer and for browser GPS location.
+## Steps — NO Terminal or SSH
 
-Do not place SQL dumps, personal records, or the database password in public GitHub. Rotate the MySQL password already shared in chat and update it only in the hosting config.
+1. In GitHub `farshoffs/ekeberadaansmkbbsul`, click **Code → Download ZIP**.
+2. Open **cPanel → File Manager → public_html**, create/open `ekeberadaansmkbbsul`. Upload the ZIP, then **Extract**. GitHub ZIP extracts into `ekeberadaansmkbbsul-main`: **move the contents** of that extracted folder into `public_html/ekeberadaansmkbbsul/`, not the extracted folder itself. Ensure `public_html/ekeberadaansmkbbsul/index.php` exists. In File Manager, enable **Show Hidden Files** if you need to see `.htaccess`.
+3. In **phpMyAdmin**, open the existing database `ppdkmyna_ekeberadaansmkbbsul`. The 21 Excel-derived tables are already present: **do not reimport the original large Excel SQL**, which would drop/recreate tables. First back up the database. Import **only** `php/schema.sql` to add `web_auth`, `web_sessions`, and `web_setup_state`.
+4. In **File Manager**, go to `public_html/ekeberadaansmkbbsul/php/`. Copy `config.local.example.php` to `config.local.php` and edit the copy. MySQL is usually `localhost` on the same cPanel account. Use the actual database name/username and your **rotated database password**. Add a random 64-character hexadecimal `setup_key`. You can generate one with the button at the installer page, then paste it into the config and into the form. **Never commit config.local.php or share the password/setup key.**
+5. Visit `https://YOUR-DOMAIN/ekeberadaansmkbbsul/setup.php`. Supply the setup key, an **existing active administrator's email** that is marked Pentadbir Sistem in the `pengguna` table, and a 6-digit PIN. Setup writes a new admin PIN hash and locks itself permanently in `web_setup_state`.
+6. After success, in **File Manager**, delete BOTH `ekeberadaansmkbbsul/setup.php` and `ekeberadaansmkbbsul/php/setup.php` from the server; remove `setup_key` from `php/config.local.php`. This is particularly important after uploading a newer ZIP: do not leave the installer available.
+7. Open **`https://YOUR-DOMAIN/ekeberadaansmkbbsul/`**. It automatically renders the application using `index.php`. The app sends requests to `https://YOUR-DOMAIN/ekeberadaansmkbbsul/api.php` and the PHP backend reads MySQL via `php/config.local.php`.
+8. An administrator can issue staff temporary PINs in the app using Pengguna → Reset PIN or bulk reset. The temporary PIN is shown only once to the admin; give it privately to the staff member. The staff member changes it at their first login. The top bar also has **Tukar PIN**.
 
-### Scope and limitations
+## URL reference
 
-This is a staging migration, not a 100% replica. Email reminders, automatic scheduled jobs, Drive profile images, PDF and Sheets exports, advanced WBF/attendance/IP policy and unexplained-absence automation are not fully migrated. Summary values can differ. Do not run both the PHP and Apps Script apps as concurrent punch recorders: their data stores would diverge.
+| Purpose | URL (replace YOUR-DOMAIN) |
+|---|---|
+| App homepage | `https://YOUR-DOMAIN/ekeberadaansmkbbsul/` |
+| First-time setup | `https://YOUR-DOMAIN/ekeberadaansmkbbsul/setup.php` |
+| API | `https://YOUR-DOMAIN/ekeberadaansmkbbsul/api.php` |
+| Private DB config | `public_html/ekeberadaansmkbbsul/php/config.local.php` (filesystem path only) |
 
-The old Apps Script PIN hashes and session tokens do NOT authenticate against PHP. PHP stores new PIN hashes in web_auth and 30-day token hashes in web_sessions.
+Do not use `/php/index.php` as the public login link. It is still a supporting renderer within the same folder.
 
-If you previously imported an older php/schema.sql without must_change_pin, run the following SQL in phpMyAdmin before importing the latest schema.sql:
+## Security and deployment verification
 
-    ALTER TABLE web_auth ADD COLUMN must_change_pin TINYINT(1) NOT NULL DEFAULT 0;
+- HTTPS is required for setup and for GPS browser permissions.
+- Check `https://YOUR-DOMAIN/ekeberadaansmkbbsul/php/config.local.php` **does not reveal the PHP source**; Apache should reject direct access. If PHP source is exposed or `.htaccess` isn't enforced, fix hosting permissions before proceeding.
+- Rotate the database password previously shared, and keep it only in the private server config. Never upload a SQL dump or personnel data to the public repository.
+- GitHub Actions verifies PHP syntax, client JavaScript syntax, and that the root index.php renders the PHP interface; actual database connectivity must be verified on your hosting.
+- If you imported an **older** `schema.sql` that lacks the `must_change_pin` column, run the following query in phpMyAdmin **once** before importing the current `schema.sql`: `ALTER TABLE web_auth ADD COLUMN must_change_pin TINYINT(1) NOT NULL DEFAULT 0;`
+- Old Apps Script PIN hashes and session tokens aren't valid in PHP. Users need new PHP PINs.
+- **Staging limitations:** automated emails and background jobs, Drive photos, Google Docs/PDF and Sheets exports, advanced WBF/IP rules and unexplained-absence/time-review derivations are not fully ported. Do not run both implementations as live punch recorders; they write to different stores.
 
-### Optional (not required)
-
-If your hosting provider later offers Terminal, php php/cli_check_db.php tests the connection, and php php/cli_set_pin.php email@example.com provisions a PIN. The browser setup removes the need for either command.
-
-GitHub CI syntax and frontend rendering checks do not prove a live cPanel connection. A real hosting test is still required.
+No Terminal is needed for these steps.
