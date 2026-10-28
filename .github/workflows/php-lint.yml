@@ -54,7 +54,7 @@ jobs:
         run: |
           set -eu
           php index.php > /tmp/ekeberadaan-rendered.html
-          grep -q 'fetch('\''api.php'\''' /tmp/ekeberadaan-rendered.html
+          grep -Fq 'fetch("api.php"' /tmp/ekeberadaan-rendered.html
           if grep -q 'google.script.run' /tmp/ekeberadaan-rendered.html; then
             echo 'Apps Script RPC remains in rendered PHP page'
             exit 1
