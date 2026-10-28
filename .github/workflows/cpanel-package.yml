@@ -43,7 +43,7 @@ jobs:
           print('Styles.html output PASS')
           PY
           php index.php > /tmp/php-frontend.html
-          grep -q 'fetch('\''api.php'\''' /tmp/php-frontend.html
+          grep -Fq 'fetch("api.php"' /tmp/php-frontend.html
           if grep -q 'google.script.run' /tmp/php-frontend.html; then
             echo 'Unexpected Google Apps Script RPC in PHP site'
             exit 1
