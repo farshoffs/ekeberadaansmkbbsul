@@ -84,9 +84,11 @@ jobs:
           sleep 1
           for path in api.php php/api.php; do
             url="http://127.0.0.1:18766/$path"
-            allowed=$(curl -sS -D /tmp/eke-cors-headers -o /dev/null -w '%{http_code}' -X OPTIONS "$url" -H 'Origin: https://farshoffs.github.io' -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')
-            test "$allowed" = "204"
-            grep -Fiq 'Access-Control-Allow-Origin: https://farshoffs.github.io' /tmp/eke-cors-headers
+            for origin in https://farshoffs.github.io https://kea3123-bit.github.io; do
+              allowed=$(curl -sS -D /tmp/eke-cors-headers -o /dev/null -w '%{http_code}' -X OPTIONS "$url" -H "Origin: $origin" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type')
+              test "$allowed" = "204"
+              grep -Fiq "Access-Control-Allow-Origin: $origin" /tmp/eke-cors-headers
+            done
             denied=$(curl -sS -o /dev/null -w '%{http_code}' -X OPTIONS "$url" -H 'Origin: https://unauthorized.example')
             test "$denied" = "403"
             echo "CORS preflight PASS: $path"
