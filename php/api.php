@@ -505,7 +505,11 @@ function admin_data(array $admin,string $day): array {
           if (!(strpos($s,'LEWAT')!==false)&&!(strpos($s,'BALIK AWAL')!==false))$sum['hadir']++;}
     }
     return ['date'=>$day,'admin'=>public_user($admin),'users'=>array_map('public_user',$us),
-      'settings'=>public_settings(settings_raw()),'report'=>$report,'summary'=>$sum];
+      // Drive root folder is shown only inside the authenticated admin panel,
+      // never in the public user bootstrap settings.
+      'settings'=>array_merge(public_settings($s),[
+          'profileRootFolderId'=>(string)($s['PROFILE_ROOT_FOLDER_ID']??'')
+      ]),'report'=>$report,'summary'=>$sum];
 }
 function all_absence_rows(): array {
     $list=rows('SELECT * FROM tidak_hadir ORDER BY _row_id DESC');
@@ -616,10 +620,15 @@ function admin_save_settings(array $admin,array $p): array {
      'thursdayWbfOutTo'=>'THURSDAY_WBF_OUT_TO','thursdayWbfDurationMinutes'=>'THURSDAY_WBF_DURATION_MINUTES',
      'absentAfter'=>'ABSENT_AFTER','systemMode'=>'SYSTEM_MODE','systemStartDate'=>'SYSTEM_START_DATE',
      'workingDays'=>'WORKING_DAYS','ipTrackingEnabled'=>'IP_TRACKING_ENABLED','punchReminderEnabled'=>'PUNCH_REMINDER_ENABLED',
-     'punchReminderTime'=>'PUNCH_REMINDER_TIME'];
+     'punchReminderTime'=>'PUNCH_REMINDER_TIME',
+     'profileRootFolderId'=>'PROFILE_ROOT_FOLDER_ID'];
     foreach($map as $field=>$key) {
         if (!array_key_exists($field,$p))continue;
         $v=is_bool($p[$field])?($p[$field]?'TRUE':'FALSE'):trim((string)$p[$field]);
+        if($field==='profileRootFolderId' && $v!=='' &&
+          !preg_match('/^[A-Za-z0-9_-]{12,120}$/',$v)) {
+            throw new InvalidArgumentException('ID folder Google Drive tidak sah. Masukkan ID folder sahaja, bukan pautan penuh.');
+        }
         if (one('SELECT _row_id FROM tetapan WHERE kunci=? LIMIT 1',[$key])) {
            execute_sql('UPDATE tetapan SET nilai=? WHERE kunci=?',[$v,$key]);
         } else {
@@ -629,7 +638,10 @@ function admin_save_settings(array $admin,array $p): array {
         }
     }
     audit_event($admin['emel'],'SIMPAN_TETAPAN','TETAPAN');
-    return ['ok'=>true,'settings'=>public_settings(settings_raw())];
+    $updated=settings_raw();
+    return ['ok'=>true,'settings'=>array_merge(public_settings($updated),[
+        'profileRootFolderId'=>(string)($updated['PROFILE_ROOT_FOLDER_ID']??'')
+    ])];
 }
 
 
