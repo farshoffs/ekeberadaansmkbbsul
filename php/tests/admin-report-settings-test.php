@@ -9,7 +9,7 @@ declare(strict_types=1);
  */
 $source = (string)file_get_contents(dirname(__DIR__).'/api.php');
 $start = strpos($source, 'function admin_data(');
-$end = $start === false ? false : strpos($source, '\nfunction all_absence_rows(', $start);
+$end = $start === false ? false : strpos($source, "\nfunction all_absence_rows(", $start);
 if ($start === false || $end === false) {
     throw new RuntimeException('admin_data() function boundaries were not found.');
 }
