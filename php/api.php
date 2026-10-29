@@ -16,7 +16,10 @@ if ($ekOrigin !== '') {
     $serverHost = strtolower((string)parse_url('https://'.($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
     $isHostingOrigin = $requestHost !== '' && $requestHost === $serverHost
         && in_array(parse_url($ekOrigin, PHP_URL_SCHEME), array('https', 'http'), true);
-    $isPagesOrigin = $ekOrigin === 'https://farshoffs.github.io';
+    $isPagesOrigin = in_array($ekOrigin, array(
+        'https://farshoffs.github.io',
+        'https://kea3123-bit.github.io'
+    ), true);
     if (!$isHostingOrigin && !$isPagesOrigin) {
         http_response_code(403);
         echo json_encode(array('ok'=>false,'error'=>'Origin not authorized'));
