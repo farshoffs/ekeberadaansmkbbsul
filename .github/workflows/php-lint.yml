@@ -36,6 +36,7 @@ jobs:
           php -l probe.php
           php -l setup.php
           php php/tests/mysql-time-test.php
+          php php/tests/admin-report-settings-test.php
           node --check < Scripts.html
           node --check < apps-script/97_WorkspaceBridge.gs
           php -l php/workspace_bridge.php
