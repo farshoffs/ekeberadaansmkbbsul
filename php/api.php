@@ -498,11 +498,18 @@ function admin_data(array $admin,string $day): array {
     }
     $sum=['total'=>count($report),'hadir'=>0,'lewat'=>0,'balikAwal'=>0,'tidakHadir'=>0,'belumHadir'=>0];
     foreach($report as $r) {
-        $s=$r['status'];
-        if ($s==='TIDAK HADIR')$sum['tidakHadir']++;
-        elseif ($s==='BELUM HADIR')$sum['belumHadir']++;
-        else {if ((strpos($s,'LEWAT')!==false))$sum['lewat']++;if ((strpos($s,'BALIK AWAL')!==false))$sum['balikAwal']++;
-          if (!(strpos($s,'LEWAT')!==false)&&!(strpos($s,'BALIK AWAL')!==false))$sum['hadir']++;}
+        // Keep $s as the settings array for public_settings() below.
+        // Reusing it for a status string caused PHP TypeError on every admin report.
+        $attendanceStatus=$r['status'];
+        if ($attendanceStatus==='TIDAK HADIR')$sum['tidakHadir']++;
+        elseif ($attendanceStatus==='BELUM HADIR')$sum['belumHadir']++;
+        else {
+            $isLate=strpos($attendanceStatus,'LEWAT')!==false;
+            $isEarly=strpos($attendanceStatus,'BALIK AWAL')!==false;
+            if ($isLate)$sum['lewat']++;
+            if ($isEarly)$sum['balikAwal']++;
+            if (!$isLate && !$isEarly)$sum['hadir']++;
+        }
     }
     return ['date'=>$day,'admin'=>public_user($admin),'users'=>array_map('public_user',$us),
       // Drive root folder is shown only inside the authenticated admin panel,

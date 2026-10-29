@@ -31,6 +31,7 @@ jobs:
           php -l php/api.php
           php -l php/index.php
           php php/tests/mysql-time-test.php
+          php php/tests/admin-report-settings-test.php
           node --check < Scripts.html
           node --check < apps-script/97_WorkspaceBridge.gs
           php -l php/workspace_bridge.php
