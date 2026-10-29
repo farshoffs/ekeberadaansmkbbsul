@@ -67,7 +67,30 @@ function rpc(string $fn,array $a) {
         'generatePublicAbsencePresencePdf','generateAbsencePresencePdf',
         'generateTimeReviewPdf','generateAttendancePresenceReportPdf',
         'generateAttendancePresenceReportSheet','generateReportSheet'
-    ],true)) require_once __DIR__.'/workspace_services.php';
+    ],true)) {
+        // cPanel updates often deploy the two API gateway files without the
+        // optional Google Workspace modules. A missing require_once raises a
+        // PHP Error and gets masked as a generic hosting error in the UI.
+        // Check both before loading, preserving JSON and a usable diagnosis.
+        foreach (['workspace_services.php','workspace_bridge.php'] as $module) {
+            if (!is_file(__DIR__.'/'.$module)) {
+                throw new RuntimeException(
+                    'Modul Google Workspace di hosting tidak lengkap ('.$module.'). '.
+                    'Muat naik php/workspace_services.php dan php/workspace_bridge.php '.
+                    'daripada pakej cPanel terkini. Jangan gantikan config.local.php.'
+                );
+            }
+        }
+        require_once __DIR__.'/workspace_services.php';
+        if (!function_exists('workspace_report') ||
+            !function_exists('workspace_user_photo') ||
+            !function_exists('workspace_sync_photos')) {
+            throw new RuntimeException(
+                'Modul Google Workspace pada hosting tidak sepadan dengan versi API. '.
+                'Muat naik kedua-dua fail Workspace daripada pakej cPanel yang sama.'
+            );
+        }
+    }
     switch($fn) {
       case 'getApiStatus':
         // Does not require a MySQL connection or Workspace bridge.
