@@ -90,6 +90,31 @@ jobs:
           code=$(curl -sS -o /tmp/eke-probe.json -w '%{http_code}' 'http://127.0.0.1:18765/probe.php')
           test "$code" = "200"
           php -r '$x=json_decode(file_get_contents("/tmp/eke-probe.json"),true); if(!($x["ok"]??false)||($x["stage"]??"")!=="standalone-php")exit(1); echo "Standalone hosting diagnostic PASS\n";'
+      - name: Workspace export returns actionable JSON if cPanel modules are missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          testdir="$(mktemp -d)"
+          cp php/api.php php/_lib.php "$testdir/"
+          php -S 127.0.0.1:18768 -t "$testdir" >/tmp/eke-missing-workspace.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; rm -rf "$testdir"' EXIT
+          status=''
+          for attempt in $(seq 1 20); do
+            status=$(curl -sS -m 3 -o /tmp/eke-missing-workspace.json -w '%{http_code}' \
+              -H 'Content-Type: application/json' \
+              -d '{"fn":"generateAttendancePresenceReportPdf","args":["dummy-session",{"fromDate":"2026-10-01","toDate":"2026-10-31"}]}' \
+              http://127.0.0.1:18768/api.php || true)
+            test "$status" != "000" && break
+            sleep 0.2
+          done
+          test "$status" = "422"
+          php -r '$j=json_decode(file_get_contents("/tmp/eke-missing-workspace.json"),true); if(!is_array($j)||($j["ok"]??true)!==false||!str_contains($j["error"]??"","workspace_services.php"))exit(1); echo "Missing Workspace files: actionable JSON PASS\n";'
+          status=$(curl -sS -o /tmp/eke-missing-health.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' -d '{"fn":"getApiStatus","args":[]}' \
+            http://127.0.0.1:18768/api.php)
+          test "$status" = "200"
+          php -r '$j=json_decode(file_get_contents("/tmp/eke-missing-health.json"),true); if(!($j["result"]["healthy"]??false))exit(1); echo "Core API stays healthy PASS\n";'
       - name: Verify browser setup page and PIN UI syntax
         run: |
           set -eu
