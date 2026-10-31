@@ -134,7 +134,7 @@ function eke_print_html(array $r):string {
     if(!$r['exceptions'])$html.='<tr><td colspan="11">Tiada rekod lewat atau balik awal.</td></tr>';
     $html.='</tbody></table></section>';
     $short=['HADIR'=>'H','LEWAT'=>'L','BALIK AWAL'=>'BA','LEWAT / BALIK AWAL'=>'L/BA','TIDAK HADIR'=>'TH','BELUM HADIR'=>'BH','BELUM DIREKOD'=>'—','HUJUNG MINGGU'=>'HM','CUTI UMUM'=>'CU'];
-    foreach(array_chunk($r['people'],3) as $group) {
+    foreach(array_chunk($r['people'],5) as $group) {
         $html.='<section class="page"><h1>Laporan Perakam Waktu</h1><div class="sub center">'.$school.' · '.$period.'</div>';
         foreach($group as $p) {
             $s=$p['summary'];
