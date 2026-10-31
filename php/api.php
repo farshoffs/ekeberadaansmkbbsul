@@ -128,6 +128,18 @@ function rpc(string $fn,array $a) {
         return punch_mysql(require_user($a[0]??''),(string)($a[1]??''),$a[2]??null);
       case 'adminSyncProfilePhotos':
         return workspace_sync_photos(require_user($a[0]??'',true));
+      case 'generateAttendancePresenceReportHtml':
+        // One authenticated admin call: MySQL is the single source of truth.
+        // No Google Sheets, Google Docs, Apps Script or HMAC bridge needed.
+        $admin=require_user($a[0]??'',true);
+        $period=is_array($a[1]??null)?$a[1]:[];
+        $from=valid_day((string)($period['fromDate']??today()));
+        $to=valid_day((string)($period['toDate']??$from));
+        require_once __DIR__.'/monthly_print.php';
+        $report=eke_monthly_print_report($from,$to);
+        audit_event($admin['emel'],'JANA_LAPORAN_BULANAN_PDF',$from.' hingga '.$to,'MySQL print view');
+        return ['ok'=>true,'html'=>eke_print_html($report),
+            'fileName'=>'Laporan_eKeberadaan_'.$from.'_'.$to.'.pdf'];
       case 'generatePublicAbsencePresencePdf':
       case 'generateAbsencePresencePdf':
       case 'generateTimeReviewPdf':
