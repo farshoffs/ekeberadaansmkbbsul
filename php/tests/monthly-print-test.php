@@ -35,4 +35,23 @@ foreach(['Ringkasan Kehadiran','Laporan Lewat / Balik Awal','Laporan Perakam Wak
     if(strpos($html,$label)===false)throw new RuntimeException('Missing section: '.$label);
 $escaped=htmlspecialchars('<script>alert(1)</script>',ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 if(strpos($html,'<script>alert(1)</script>')!==false)throw new RuntimeException('Unsafe markup');
+// Validate the requested compact print layout.
+foreach(['<th>Hari Hadir</th>','<th>Lewat Min.</th>','<th>Balik Awal Min.</th>'] as $removed)
+    if(str_contains($html,$removed))throw new RuntimeException('Obsolete summary column: '.$removed);
+if(!str_contains($html,'class="clock"'))throw new RuntimeException('Clock fonts were not normalized');
+if(str_contains($html,'<th class="col-time">Masuk 2</th>')||str_contains($html,'<th class="col-time">Keluar 2</th>'))
+    throw new RuntimeException('Empty session 2 columns were not hidden');
+// When an employee has session 2, show the matching column on both halves.
+$r['people'][0]['days'][0]['in2']='11:04';
+$withSession2=eke_print_html($r);
+if(substr_count($withSession2,'<th class="col-time">Masuk 2</th>')!==2||
+   str_contains($withSession2,'<th class="col-time">Keluar 2</th>'))
+   throw new RuntimeException('Conditional session 2 columns incorrect');
+// Repeat the same employee's exception on another date: only one name row.
+$extra=$r['exceptions'][0];$extra['date']='2026-10-02';$r['exceptions'][]=$extra;
+$grouped=eke_print_html($r);
+if(!preg_match('/<table class="exceptions">(.+?)<\/table>/s',$grouped,$m))
+    throw new RuntimeException('Grouped exception table not found');
+if(substr_count($m[1],'Nama Satu')!==1 || !str_contains($m[1],'01.10.2026') || !str_contains($m[1],'02.10.2026'))
+    throw new RuntimeException('Late/early grouping by employee failed');
 echo "MYSQL_MONTHLY_PRINT_OK\n";
